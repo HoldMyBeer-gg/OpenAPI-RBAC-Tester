@@ -18,7 +18,7 @@ public class OpenAPIBifrostExtension implements BurpExtension {
 
     @Override
     public void initialize(MontoyaApi api) {
-        api.extension().setName("OpenAPI-Bifrost");
+        api.extension().setName("OpenAPI-Bifrost: API Spec Endpoint Importer and Tester");
 
         OpenAPIBifrostTab tab = new OpenAPIBifrostTab(api);
         api.userInterface().applyThemeToComponent(tab);

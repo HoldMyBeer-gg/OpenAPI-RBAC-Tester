@@ -1,4 +1,4 @@
-# OpenAPI-Bifrost
+# OpenAPI-Bifrost: API Spec Endpoint Importer and Tester
 
 An alternative Burp Suite extension for loading OpenAPI specifications and bridging parsed endpoints into Scanner, Repeater, and Intruder — with a built-in **RBAC comparison grid** for testing authorization across multiple identities in a single pass.
 

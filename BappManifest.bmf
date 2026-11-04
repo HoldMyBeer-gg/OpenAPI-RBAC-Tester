@@ -1,6 +1,6 @@
 Uuid: b3a7f2c1e9d44a8b9c0e1f2a3b4c5d6e
 ExtensionType: 1
-Name: OpenAPI-Bifrost
+Name: OpenAPI-Bifrost: API Spec Endpoint Importer and Tester
 RepoName: OpenAPI-Bifrost
 ScreenVersion: 1.0
 SerialVersion: 1

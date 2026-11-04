@@ -44,7 +44,7 @@ import java.util.List;
  * as the runner completes each cell; the dialog remains interactive during the run.
  * Right-click a completed cell to send its request/response to Repeater.
  */
-public class RbacComparisonDialog extends JDialog {
+public class RbacComparisonDialog extends JDialog implements OpenAPIBifrostTab.AbortableRun {
 
     private final MontoyaApi api;
     private final List<ApiEndpoint> endpoints;
@@ -142,6 +142,22 @@ public class RbacComparisonDialog extends JDialog {
 
     private int totalCells() {
         return endpoints.size() * identities.size();
+    }
+
+    /**
+     * Stops the run and closes the window. Called from the extension's unload handler, which
+     * may run off the EDT: the runner is stopped immediately (its HTTP traffic must not
+     * outlive the extension) and the window disposal is queued onto the EDT.
+     */
+    @Override
+    public void abort() {
+        runner.cancel();
+        runner.shutdown();
+        if (SwingUtilities.isEventDispatchThread()) {
+            dispose();
+        } else {
+            SwingUtilities.invokeLater(this::dispose);
+        }
     }
 
     public void startRun() {

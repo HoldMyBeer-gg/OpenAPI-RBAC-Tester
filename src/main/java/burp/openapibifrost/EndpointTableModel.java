@@ -39,7 +39,9 @@ public class EndpointTableModel extends AbstractTableModel {
     }
 
     public void setFilter(String regex) {
-        this.filterRegex = regex != null ? regex : "";
+        String next = regex != null ? regex : "";
+        if (next.equals(this.filterRegex)) return; // same text: keep the compiled pattern and the rows
+        this.filterRegex = next;
         this.filterPattern = null;
         if (!this.filterRegex.isBlank() && this.filterRegex.length() <= MAX_FILTER_REGEX_LENGTH) {
             try {

@@ -53,6 +53,32 @@ class EndpointTableModelTest {
     }
 
     @Test
+    void setFilter_sameRegexTwice_skipsRecompileAndRefire() {
+        model.setEndpoints(endpoints);
+        model.setFilter("POST");
+        var events = new java.util.concurrent.atomic.AtomicInteger();
+        model.addTableModelListener(e -> events.incrementAndGet());
+
+        model.setFilter("POST");
+
+        assertEquals(0, events.get(), "identical filter text should be a no-op");
+        assertEquals(1, model.getFilterHitCount());
+    }
+
+    @Test
+    void setFilter_changedRegex_refires() {
+        model.setEndpoints(endpoints);
+        model.setFilter("POST");
+        var events = new java.util.concurrent.atomic.AtomicInteger();
+        model.addTableModelListener(e -> events.incrementAndGet());
+
+        model.setFilter("GET");
+
+        assertEquals(1, events.get());
+        assertEquals("GET", model.getValueAt(0, 2));
+    }
+
+    @Test
     void setFilter_invalidRegex_ignored() {
         model.setEndpoints(endpoints);
         model.setFilter("[invalid");

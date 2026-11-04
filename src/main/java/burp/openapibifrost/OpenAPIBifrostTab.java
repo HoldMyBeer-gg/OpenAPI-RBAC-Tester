@@ -2,7 +2,9 @@ package burp.openapibifrost;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.BurpSuiteEdition;
+import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.http.HttpService;
+import burp.api.montoya.http.RequestOptions;
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
@@ -13,10 +15,13 @@ import burp.api.montoya.scanner.AuditConfiguration;
 import burp.api.montoya.scanner.BuiltInAuditConfiguration;
 import burp.api.montoya.scanner.audit.Audit;
 import burp.api.montoya.ui.editor.HttpRequestEditor;
+import burp.api.montoya.ui.editor.RawEditor;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.dnd.DnDConstants;
@@ -30,6 +35,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -55,8 +62,14 @@ public class OpenAPIBifrostTab extends JPanel {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final IdentityStore identityStore;
 
+    private static final int FILTER_DEBOUNCE_MS = 150;
+
+    /** Background runs (RBAC comparisons) that must be stopped if the extension unloads mid-run. */
+    private final Set<AbortableRun> activeRuns = ConcurrentHashMap.newKeySet();
+
     private JTextField urlOrPathField;
-    private JTextArea rawSpecArea;
+    private RawEditor rawSpecEditor;
+    private Timer filterDebounce;
     private JTextField baseUrlOverrideField;
     private JTextField bearerField;
     private JTextField apiKeyValueField;
@@ -157,15 +170,17 @@ public class OpenAPIBifrostTab extends JPanel {
         authC.insets = new Insets(6, 0, 6, 0);
         topPanel.add(buildAuthPanel(), authC);
 
-        // Raw spec paste area.
-        rawSpecArea = new JTextArea(6, 60);
-        rawSpecArea.setLineWrap(true);
-        rawSpecArea.setFont(UIManager.getFont("TextArea.font"));
-        JScrollPane rawSpecScroll = new JScrollPane(rawSpecArea);
-        rawSpecScroll.setBorder(new LineBorder(UIManager.getColor("Component.borderColor"), 1));
+        // Raw spec paste area: Burp's own raw editor, so it gets line numbers, Burp styling and
+        // theme support. It scrolls itself, so it is not wrapped in another JScrollPane.
+        rawSpecEditor = api.userInterface().createRawEditor();
+        Component rawSpecComponent = rawSpecEditor.uiComponent();
+        JPanel rawSpecPanel = new JPanel(new BorderLayout());
+        rawSpecPanel.setBorder(new LineBorder(UIManager.getColor("Component.borderColor"), 1));
+        rawSpecPanel.setPreferredSize(new Dimension(0, 140));
+        rawSpecPanel.add(rawSpecComponent, BorderLayout.CENTER);
         JButton parseRawBtn = new JButton("Parse");
         parseRawBtn.addActionListener(e -> {
-            String content = rawSpecArea.getText();
+            String content = rawSpecText();
             if (content != null && !content.isBlank()) {
                 setStatus("Parsing...");
                 parseInBackground(content.trim(), "pasted");
@@ -189,7 +204,7 @@ public class OpenAPIBifrostTab extends JPanel {
         textareaC.weightx = 1.0;
         textareaC.weighty = 1.0;
         textareaC.insets = new Insets(0, 0, 4, 0);
-        topPanel.add(rawSpecScroll, textareaC);
+        topPanel.add(rawSpecPanel, textareaC);
 
         // Parse button aligned under the textarea.
         GridBagConstraints btnC = rowConstraints(6);
@@ -211,12 +226,16 @@ public class OpenAPIBifrostTab extends JPanel {
         JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         filterRow.add(new JLabel("Filter (regex, case-sensitive):"));
         filterField = new JTextField(25);
-        filterField.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyReleased(KeyEvent e) {
-                tableModel.setFilter(filterField.getText());
-                updateFilterHits();
-            }
+        // Debounce: a large spec is re-filtered once per pause in typing, not once per keystroke.
+        filterDebounce = new Timer(FILTER_DEBOUNCE_MS, e -> {
+            tableModel.setFilter(filterField.getText());
+            updateFilterHits();
+        });
+        filterDebounce.setRepeats(false);
+        filterField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { filterDebounce.restart(); }
+            @Override public void removeUpdate(DocumentEvent e) { filterDebounce.restart(); }
+            @Override public void changedUpdate(DocumentEvent e) { filterDebounce.restart(); }
         });
         filterRow.add(filterField);
         filterHitsLabel = new JLabel("0 hits");
@@ -247,6 +266,7 @@ public class OpenAPIBifrostTab extends JPanel {
     }
 
     private void setupDropTarget(JComponent dropZone) {
+        if (GraphicsEnvironment.isHeadless()) return; // DropTarget needs a display; tests run headless.
         dropZone.setDropTarget(new DropTarget() {
             @Override
             public synchronized void drop(DropTargetDropEvent evt) {
@@ -284,7 +304,7 @@ public class OpenAPIBifrostTab extends JPanel {
 
     private void doLoad() {
         String input = urlOrPathField.getText();
-        String rawContent = rawSpecArea != null ? rawSpecArea.getText() : null;
+        String rawContent = rawSpecText();
         if ((input == null || input.isBlank()) && (rawContent == null || rawContent.isBlank())) {
             setStatus("Enter a URL or file path, paste raw spec below, or drag & drop a file.");
             return;
@@ -328,10 +348,12 @@ public class OpenAPIBifrostTab extends JPanel {
         return s.startsWith("http://") || s.startsWith("https://");
     }
 
-    private void loadFromUrl(String url) {
+    void loadFromUrl(String url) {
         try {
             HttpRequest req = applyAuthToFetch(HttpRequest.httpRequestFromUrl(url), getAuthConfig());
-            var response = api.http().sendRequest(req);
+            // The spec URL is user-supplied and often external: verify its certificate.
+            var response = api.http().sendRequest(req,
+                    RequestOptions.requestOptions().withUpstreamTLSVerification());
             var httpResponse = response.response();
             if (httpResponse == null) throw new IOException("No response");
             short status = httpResponse.statusCode();
@@ -383,8 +405,15 @@ public class OpenAPIBifrostTab extends JPanel {
         return req;
     }
 
+    /** Current text of the raw spec editor, decoded as UTF-8; empty if the editor isn't built yet. */
+    private String rawSpecText() {
+        if (rawSpecEditor == null) return "";
+        ByteArray contents = rawSpecEditor.getContents();
+        return contents == null ? "" : new String(contents.getBytes(), StandardCharsets.UTF_8);
+    }
+
     private void fallbackToRawPasteOrSetError(String errorMsg) {
-        String raw = rawSpecArea != null ? rawSpecArea.getText() : null;
+        String raw = rawSpecText();
         if (raw != null && !raw.isBlank()) {
             setStatus("File/URL failed. Parsing pasted content instead...");
             parseInBackground(raw.trim(), "pasted");
@@ -907,19 +936,33 @@ public class OpenAPIBifrostTab extends JPanel {
         }
 
         String fullUrl = safeUrl(req);
-        HttpResponse response = rr.response();
-        String body = response != null ? response.bodyToString() : null;
-        boolean haveSpecBody = HeaderClassifier.looksLikeSpecBody(body);
         boolean looksLikeSpecPath = HeaderClassifier.isSpecUrlPath(req.path()) && fullUrl != null;
+        HttpResponse response = rr.response();
+        ByteArray rawBody = response != null ? response.body() : null;
 
+        // Decoding and sniffing the body can be slow for a large spec, so it happens off the
+        // EDT; the UI is updated once the result is known.
+        setStatus("Imported auth — inspecting response body...");
+        executor.submit(() -> {
+            String body = rawBody != null ? new String(rawBody.getBytes(), StandardCharsets.UTF_8) : null;
+            boolean haveSpecBody = HeaderClassifier.looksLikeSpecBody(body);
+            String trimmed = haveSpecBody ? body.trim() : null;
+            SwingUtilities.invokeLater(() ->
+                    finishImport(rawBody, trimmed, haveSpecBody, looksLikeSpecPath, fullUrl, baseUrl));
+        });
+    }
+
+    /** Second half of {@link #applyImport}, back on the EDT with the body already decoded. */
+    private void finishImport(ByteArray rawBody, String trimmedBody, boolean haveSpecBody,
+                              boolean looksLikeSpecPath, String fullUrl, String baseUrl) {
         if (haveSpecBody || looksLikeSpecPath) {
             if (fullUrl != null) urlOrPathField.setText(fullUrl);
             if (haveSpecBody) {
-                rawSpecArea.setText(body);
+                rawSpecEditor.setContents(rawBody);
                 setStatus("Imported auth + spec body — parsing now...");
                 updateRequestPreview();
                 captureActiveIdentity();
-                parseInBackground(body.trim(), fullUrl != null ? fullUrl : "pasted");
+                parseInBackground(trimmedBody, fullUrl != null ? fullUrl : "pasted");
                 return;
             }
             setStatus("Imported auth + spec URL — click Load.");
@@ -1047,7 +1090,9 @@ public class OpenAPIBifrostTab extends JPanel {
     }
 
     private void setupKeyBinding() {
-        int modifier = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+        int modifier = GraphicsEnvironment.isHeadless()
+                ? InputEvent.CTRL_DOWN_MASK
+                : Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
         KeyStroke ks = KeyStroke.getKeyStroke(KeyEvent.VK_I, modifier);
         endpointTable.getInputMap(JComponent.WHEN_FOCUSED).put(ks, "SendToIntruder");
         endpointTable.getActionMap().put("SendToIntruder", new AbstractAction() {
@@ -1195,6 +1240,10 @@ public class OpenAPIBifrostTab extends JPanel {
         Frame parent = api.userInterface().swingUtils().suiteFrame();
         RbacComparisonDialog dialog = new RbacComparisonDialog(
                 parent, api, filtered, picked, sender, 6);
+        trackRun(dialog);
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override public void windowClosed(WindowEvent e) { untrackRun(dialog); }
+        });
         dialog.setVisible(true);
         dialog.startRun();
         setStatus("RBAC comparison started: " + filtered.size() + " endpoints × " + picked.size() + " identities.");
@@ -1391,7 +1440,29 @@ public class OpenAPIBifrostTab extends JPanel {
         statusLabel.setText(msg);
     }
 
+    /** A background run (e.g. an RBAC comparison) that must stop when the extension unloads. */
+    interface AbortableRun {
+        void abort();
+    }
+
+    void trackRun(AbortableRun run) {
+        activeRuns.add(run);
+    }
+
+    void untrackRun(AbortableRun run) {
+        activeRuns.remove(run);
+    }
+
     public void unload() {
+        if (filterDebounce != null) filterDebounce.stop();
+        for (AbortableRun run : activeRuns) {
+            try {
+                run.abort();
+            } catch (RuntimeException e) {
+                logging.logToError("Failed to abort run on unload: " + e.getMessage());
+            }
+        }
+        activeRuns.clear();
         executor.shutdown();
         try {
             if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {

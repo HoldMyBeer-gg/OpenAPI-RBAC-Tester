@@ -27,6 +27,8 @@ public class OpenAPIRbacTesterExtension implements BurpExtension {
 
         api.extension().registerUnloadingHandler(tab::unload);
 
-        api.logging().logToOutput("OpenAPI-RBAC-Tester loaded.");
+        long legacyKeys = api.persistence().preferences().stringKeys().stream()
+                .filter(k -> k.startsWith(IdentityStore.LEGACY_PREFIX)).count();
+        api.logging().logToOutput("OpenAPI-RBAC-Tester loaded. Legacy identity keys in preference store: " + legacyKeys);
     }
 }

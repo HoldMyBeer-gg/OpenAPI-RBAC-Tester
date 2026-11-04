@@ -3,7 +3,7 @@ plugins {
     id 'jacoco'
 }
 
-group = 'burp.openapibifrost'
+group = 'burp.openapirbactester'
 version = '1.0'
 
 java {
@@ -54,13 +54,13 @@ jacocoTestReport {
     }
     afterEvaluate {
         def exclusion = [
-            '**/OpenAPIBifrostExtension.class',
-            '**/OpenAPIBifrostTab.class',
-            '**/OpenAPIBifrostTab$*.class',
+            '**/OpenAPIRbacTesterExtension.class',
+            '**/OpenAPIRbacTesterTab.class',
+            '**/OpenAPIRbacTesterTab$*.class',
             '**/RequestGenerator.class',
             '**/RbacComparisonDialog.class',
             '**/RbacComparisonDialog$*.class',
-            '**/BifrostContextMenuProvider.class'
+            '**/RbacTesterContextMenuProvider.class'
         ]
         classDirectories.setFrom(files(classDirectories.files.collect {
             fileTree(dir: it, exclude: exclusion)
@@ -71,13 +71,13 @@ jacocoTestReport {
 jacocoTestCoverageVerification {
     afterEvaluate {
         def exclusion = [
-            '**/OpenAPIBifrostExtension.class',
-            '**/OpenAPIBifrostTab.class',
-            '**/OpenAPIBifrostTab$*.class',
+            '**/OpenAPIRbacTesterExtension.class',
+            '**/OpenAPIRbacTesterTab.class',
+            '**/OpenAPIRbacTesterTab$*.class',
             '**/RequestGenerator.class',
             '**/RbacComparisonDialog.class',
             '**/RbacComparisonDialog$*.class',
-            '**/BifrostContextMenuProvider.class'
+            '**/RbacTesterContextMenuProvider.class'
         ]
         classDirectories.setFrom(files(classDirectories.files.collect {
             fileTree(dir: it, exclude: exclusion)
@@ -97,10 +97,10 @@ jacocoTestCoverageVerification {
 check.dependsOn jacocoTestCoverageVerification
 
 jar {
-    archiveBaseName = 'OpenAPI-Bifrost'
+    archiveBaseName = 'OpenAPI-RBAC-Tester'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
-        attributes 'Extension-Class': 'burp.openapibifrost.OpenAPIBifrostExtension'
+        attributes 'Extension-Class': 'burp.openapirbactester.OpenAPIRbacTesterExtension'
     }
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }

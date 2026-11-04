@@ -1,6 +1,6 @@
 # BDD Testing with Cucumber 🥒
 
-Your OpenAPI-Bifrost Burp Suite extension now has **BDD (Behavior-Driven Development) testing** set up with Cucumber!
+Your OpenAPI-RBAC-Tester Burp Suite extension now has **BDD (Behavior-Driven Development) testing** set up with Cucumber!
 
 ## What Was Added
 
@@ -17,7 +17,7 @@ Located in `src/test/resources/features/`:
 - **endpoint-management.feature** - Scenarios for managing API endpoints
 
 ### 3. Step Definitions
-Located in `src/test/java/burp/openapibifrost/bdd/`:
+Located in `src/test/java/burp/openapirbactester/bdd/`:
 
 - **OpenAPIParsingSteps.java** - Implements parsing scenarios
 - **RequestGenerationSteps.java** - Implements request generation scenarios
@@ -30,7 +30,7 @@ Located in `src/test/java/burp/openapibifrost/bdd/`:
 
 ### Run all BDD tests:
 ```bash
-./gradlew test --tests "burp.openapibifrost.bdd.CucumberTestRunner"
+./gradlew test --tests "burp.openapirbactester.bdd.CucumberTestRunner"
 ```
 
 ### Run all tests (BDD + unit tests):
@@ -71,7 +71,7 @@ Feature: OpenAPI Specification Parsing
 
 1. **Create a feature file** in `src/test/resources/features/your-feature.feature`
 2. **Write scenarios** using Given-When-Then format
-3. **Implement step definitions** in `src/test/java/burp/openapibifrost/bdd/`
+3. **Implement step definitions** in `src/test/java/burp/openapirbactester/bdd/`
 4. **Run tests** to verify
 
 ## Current Test Coverage

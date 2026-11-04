@@ -315,12 +315,15 @@ public class OpenAPIRbacTesterTab extends JPanel {
     }
 
     private void doBrowse() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-        chooser.setDialogTitle("Select OpenAPI spec (JSON, YAML, TXT)");
+        // Native OS picker (NSOpenPanel / Explorer / GTK) rather than Swing's JFileChooser.
+        // No filename filter on purpose: the spec can have any extension, and Windows
+        // ignores the filter anyway. OpenAPIParser.looksLikeSpec() rejects non-specs by content.
         java.awt.Frame parent = api.userInterface().swingUtils().suiteFrame();
-        if (chooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
-            urlOrPathField.setText(chooser.getSelectedFile().getAbsolutePath());
+        java.awt.FileDialog dialog = new java.awt.FileDialog(parent, "Select OpenAPI spec", java.awt.FileDialog.LOAD);
+        dialog.setVisible(true);
+        String file = dialog.getFile();
+        if (file != null) {
+            urlOrPathField.setText(new java.io.File(dialog.getDirectory(), file).getAbsolutePath());
             doLoad();
         }
     }

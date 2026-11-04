@@ -43,6 +43,11 @@ public class OpenAPIParser {
         }
 
         String cleaned = stripLeadingShellPrompt(specContent.trim());
+        if (!looksLikeSpec(cleaned)) {
+            errors.add("Not an OpenAPI spec: " + describeLocation(location)
+                    + " does not start with a JSON object or an 'openapi:'/'swagger:' YAML key.");
+            return new ParseResult(endpoints, errors, defaultServer, securitySchemes);
+        }
         SwaggerParseResult parseResult = new OpenAPIV3Parser().readContents(cleaned, null, null);
         OpenAPI openAPI = parseResult.getOpenAPI();
 
@@ -253,6 +258,22 @@ public class OpenAPIParser {
      * @param content raw pasted content
      * @return content starting from the first OpenAPI/Swagger line, or original if none found
      */
+    /**
+     * Content-based check that runs before the swagger parser. The file picker does
+     * not filter by extension (the spec may be called anything), so this is what
+     * stops a CSV, prose, or a bare JSON array from reaching Jackson and surfacing
+     * as a deserialisation stack trace.
+     */
+    static boolean looksLikeSpec(String content) {
+        if (content == null) return false;
+        String head = content.stripLeading();
+        return head.startsWith("{") || head.startsWith("openapi:") || head.startsWith("swagger:");
+    }
+
+    private static String describeLocation(String location) {
+        return (location == null || location.isBlank()) ? "the selected content" : location;
+    }
+
     private static String stripLeadingShellPrompt(String content) {
         if (content == null || content.isEmpty()) return content;
         String[] lines = content.split("\\r?\\n");

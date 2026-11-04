@@ -47,6 +47,34 @@ class OpenAPIParserTest {
     }
 
     @Test
+    void parse_csvResultsFile_returnsNotASpecErrorInsteadOfThrowing() {
+        // A results CSV exported by this very extension, picked by mistake in the open dialog.
+        String csv = "#,Method,Path,Default,readonly,consultant,org-admin,org-owner,Divergence\n"
+                + "1,POST,/api/generate/structured,401,422,422,422,422,Consistent deny\n"
+                + "2,POST,/api/generate/docx,401,422,422,422,422,Consistent deny\n";
+        var result = assertDoesNotThrow(() -> parser.parse("openapi-rbac-tester.csv", csv));
+        assertTrue(result.getEndpoints().isEmpty());
+        assertTrue(result.getMessages().stream().anyMatch(m -> m.contains("Not an OpenAPI spec")),
+                "expected a plain 'Not an OpenAPI spec' message, got: " + result.getMessages());
+        assertTrue(result.getMessages().stream().anyMatch(m -> m.contains("openapi-rbac-tester.csv")),
+                "message should name the file that was picked");
+    }
+
+    @Test
+    void parse_plainProse_returnsNotASpecError() {
+        var result = parser.parse("notes.txt", "Remember to buy milk and run the RBAC suite.");
+        assertTrue(result.getEndpoints().isEmpty());
+        assertTrue(result.getMessages().stream().anyMatch(m -> m.contains("Not an OpenAPI spec")));
+    }
+
+    @Test
+    void parse_jsonArray_returnsNotASpecError() {
+        var result = parser.parse("list.json", "[1, 2, 3]");
+        assertTrue(result.getEndpoints().isEmpty());
+        assertTrue(result.getMessages().stream().anyMatch(m -> m.contains("Not an OpenAPI spec")));
+    }
+
+    @Test
     void parse_validOpenAPI_returnsEndpoints() throws Exception {
         String json = readResource("openapi-petstore.json");
         var result = parser.parse("petstore.json", json);

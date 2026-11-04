@@ -4,13 +4,13 @@ An alternative Burp Suite extension for loading OpenAPI specifications and bridg
 
 Offers a different feature set to the existing OpenAPI Parser extension — not a replacement.
 
-![Main panel — spec loaded, four identities configured, session cookie imported, endpoints listed](docs/screenshots/main-panel.png)
+![Main panel — spec loaded, five identities configured, session cookie imported, endpoints listed](docs/screenshots/main-panel.png)
 
 ## The RBAC differentiator
 
 Pick any subset of endpoints, right-click → **Compare across identities…**, and the extension runs each request under each named identity you've configured. The resulting live-updating matrix classifies every row by how far each identity got through the server's processing stack — surfacing authorization anomalies that would otherwise hide under generic "403" or "404" responses.
 
-![RBAC comparison grid showing 150 endpoints × 4 identities, 600/600 cells completed in 19 seconds](docs/screenshots/rbac-comparison.png)
+![RBAC comparison grid showing 130 endpoints × 5 identities, 650/650 cells completed in 110 seconds](docs/screenshots/rbac-comparison.png)
 
 Classification uses a stack-depth model rather than a plain allow/deny split:
 
@@ -46,13 +46,13 @@ The extension centres on **named identities**. Each identity holds:
 - **Extra headers** — free-form textarea for anything else (`Cookie:`, `X-Tenant:`, `X-CSRF-Token:`, whatever). Overrides the above on collision, so you can paste raw headers verbatim from a working request.
 - **Base URL override** — per-identity, so "admin on staging" and "user on prod" stay straight.
 
-Switch via the dropdown in the Authentication panel; add / rename / delete named identities with the buttons alongside. Identities **persist across Burp restarts** via the Java preferences store.
+Switch via the dropdown in the Authentication panel; **New…** / **Rename…** / **Delete** alongside it manage the named identities. Identities **persist across Burp restarts** via the Java preferences store.
 
 When a spec declares `components.securitySchemes`, the panel shows a one-line summary and pre-fills the API key header name if exactly one `apiKey` scheme is declared.
 
 ## Sending to Burp tools
 
-Select one or more endpoints → right-click → **OpenAPI-RBAC-Tester** →
+Select one or more endpoints, then use the buttons above the table (or right-click → **OpenAPI-RBAC-Tester**):
 
 - **Actively Scan** (Pro only) — sends to Scanner with your active identity's auth. Pre-checks scope and aborts with a clear message if all selected endpoints are out of scope (Scanner otherwise silently drops them). Fires a single audit task for the whole batch.
 - **Send to Repeater** — one tab per endpoint, named `METHOD /path`.

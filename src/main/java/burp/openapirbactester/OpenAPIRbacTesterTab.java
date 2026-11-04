@@ -240,7 +240,25 @@ public class OpenAPIRbacTesterTab extends JPanel {
         filterRow.add(filterField);
         filterHitsLabel = new JLabel("0 hits");
         filterRow.add(filterHitsLabel);
-        centerPanel.add(filterRow, BorderLayout.NORTH);
+
+        // Actions on the current selection, visible without opening the context menu.
+        JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
+        JButton repeaterBtn = new JButton("Send to Repeater");
+        repeaterBtn.addActionListener(e -> doSendToRepeater());
+        JButton intruderBtn = new JButton("Send to Intruder");
+        intruderBtn.setToolTipText("Cmd/Ctrl+I");
+        intruderBtn.addActionListener(e -> doSendToIntruder());
+        JButton compareBtn = new JButton("Compare across identities…");
+        compareBtn.setToolTipText("Run the selected endpoints under every identity and compare the responses.");
+        compareBtn.addActionListener(e -> doCompareIdentities());
+        actionRow.add(repeaterBtn);
+        actionRow.add(intruderBtn);
+        actionRow.add(compareBtn);
+
+        JPanel toolbar = new JPanel(new BorderLayout());
+        toolbar.add(filterRow, BorderLayout.WEST);
+        toolbar.add(actionRow, BorderLayout.EAST);
+        centerPanel.add(toolbar, BorderLayout.NORTH);
 
         // Table and request preview
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
@@ -351,11 +369,16 @@ public class OpenAPIRbacTesterTab extends JPanel {
     void loadFromUrl(String url) {
         try {
             HttpRequest req = applyAuthToFetch(HttpRequest.httpRequestFromUrl(url), getAuthConfig());
-            // The spec URL is user-supplied and often external: verify its certificate.
-            var response = api.http().sendRequest(req,
-                    RequestOptions.requestOptions().withUpstreamTLSVerification());
+            // The spec URL is user-supplied and often external: verify its certificate. Only
+            // for https, though: with the TLS option set, Burp never sends a plain-http request.
+            var response = url.startsWith("https://")
+                    ? api.http().sendRequest(req, RequestOptions.requestOptions().withUpstreamTLSVerification())
+                    : api.http().sendRequest(req);
             var httpResponse = response.response();
-            if (httpResponse == null) throw new IOException("No response");
+            if (httpResponse == null) {
+                String hint = networkHint();
+                throw new IOException("No response from " + url + (hint != null ? ". " + hint : ""));
+            }
             short status = httpResponse.statusCode();
             if (status < 200 || status >= 300) {
                 String msg = "Spec fetch returned HTTP " + status
@@ -403,6 +426,25 @@ public class OpenAPIRbacTesterTab extends JPanel {
             req = req.withAddedHeader(h.name(), h.value());
         }
         return req;
+    }
+
+    /**
+     * Explains a silent null response in terms of Burp's own proxy settings, since a stale
+     * SOCKS or upstream proxy swallows every extension request without an exception.
+     */
+    private String networkHint() {
+        try {
+            String project = api.burpSuite().exportProjectOptionsAsJson("project_options.connections");
+            String user = api.burpSuite().exportUserOptionsAsJson("user_options.connections");
+            return NetworkHints.describe(project, user);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Current status bar text; for tests. */
+    String statusText() {
+        return statusLabel.getText();
     }
 
     /** Current text of the raw spec editor, decoded as UTF-8; empty if the editor isn't built yet. */

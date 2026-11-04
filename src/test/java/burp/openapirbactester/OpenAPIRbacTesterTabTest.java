@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -93,6 +94,76 @@ class OpenAPIRbacTesterTabTest {
 
         verify(http).sendRequest(req, verified);
         verify(http, never()).sendRequest(any(HttpRequest.class));
+    }
+
+    @Test
+    void loadFromUrl_plainHttp_sendsWithoutTlsOptions() {
+        String url = "http://127.0.0.1:8099/openapi.json";
+        HttpRequest req = mock(HttpRequest.class);
+        when(factory.httpRequestFromUrl(url)).thenReturn(req);
+
+        ByteArray body = mock(ByteArray.class);
+        when(body.getBytes()).thenReturn("{}".getBytes(StandardCharsets.UTF_8));
+        HttpResponse response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn((short) 200);
+        when(response.body()).thenReturn(body);
+        HttpRequestResponse rr = mock(HttpRequestResponse.class);
+        when(rr.response()).thenReturn(response);
+        when(http.sendRequest(req)).thenReturn(rr);
+
+        tab.loadFromUrl(url);
+
+        verify(http).sendRequest(req);
+        verify(http, never()).sendRequest(any(HttpRequest.class), any(RequestOptions.class));
+        verify(factory, never()).requestOptions();
+    }
+
+    @Test
+    void loadFromUrl_noResponse_withSocksEnabled_namesTheProxyInStatus() throws Exception {
+        String url = "http://127.0.0.1:8099/openapi.json";
+        HttpRequest req = mock(HttpRequest.class);
+        when(factory.httpRequestFromUrl(url)).thenReturn(req);
+        HttpRequestResponse rr = mock(HttpRequestResponse.class);
+        when(rr.response()).thenReturn(null);
+        when(http.sendRequest(req)).thenReturn(rr);
+        when(api.burpSuite().exportProjectOptionsAsJson(any(String[].class))).thenReturn("""
+                {"project_options":{"connections":{
+                  "socks_proxy":{"host":"127.0.0.1","port":9119,"use_proxy":true,"use_user_options":false},
+                  "upstream_proxy":{"servers":[],"use_user_options":false}}}}""");
+
+        tab.loadFromUrl(url);
+        javax.swing.SwingUtilities.invokeAndWait(() -> { }); // flush the status update
+
+        String status = tab.statusText();
+        assertTrue(status.contains("No response"), status);
+        assertTrue(status.contains("SOCKS proxy at 127.0.0.1:9119"), status);
+    }
+
+    @Test
+    void compareButton_isVisibleOnTheTab_andActsOnSelection() {
+        javax.swing.JButton compare = findButton(tab, "Compare across identities…");
+        assertTrue(compare != null, "Compare button should be on the tab, not only in the context menu");
+
+        compare.doClick();
+
+        assertTrue(tab.statusText().contains("Select one or more endpoints"), tab.statusText());
+    }
+
+    @Test
+    void sendButtons_areVisibleOnTheTab() {
+        assertTrue(findButton(tab, "Send to Repeater") != null);
+        assertTrue(findButton(tab, "Send to Intruder") != null);
+    }
+
+    private static javax.swing.JButton findButton(java.awt.Container root, String text) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (c instanceof javax.swing.JButton b && text.equals(b.getText())) return b;
+            if (c instanceof java.awt.Container inner) {
+                javax.swing.JButton found = findButton(inner, text);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     @Test

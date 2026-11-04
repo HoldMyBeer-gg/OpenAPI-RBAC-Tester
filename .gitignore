@@ -1,3 +1,4 @@
 .vscode/
 build/
 .gradle/
+.DS_Store

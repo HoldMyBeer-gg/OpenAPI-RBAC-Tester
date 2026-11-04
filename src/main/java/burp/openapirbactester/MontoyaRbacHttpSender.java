@@ -5,6 +5,9 @@ import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 /**
  * Production {@link RbacHttpSender} that builds a request via {@link RequestGenerator}
  * and fires it through Montoya's HTTP stack. Returns the raw {@link HttpRequestResponse}
@@ -39,12 +42,25 @@ public class MontoyaRbacHttpSender implements RbacHttpSender {
                 return new SendResult(RbacCellResult.error("no response", elapsed), rr);
             }
             long bodyLen = resp.body() != null ? resp.body().length() : 0;
-            return new SendResult(RbacCellResult.ok(resp.statusCode(), bodyLen, elapsed), rr);
+            String hash = resp.body() != null ? sha256Hex(resp.body().getBytes()) : null;
+            return new SendResult(RbacCellResult.ok(resp.statusCode(), bodyLen, elapsed, hash), rr);
         } catch (Throwable t) {
             long elapsed = System.currentTimeMillis() - t0;
             return new SendResult(
                     RbacCellResult.error(t.getClass().getSimpleName() + ": " + t.getMessage(), elapsed),
                     null);
+        }
+    }
+
+    static String sha256Hex(byte[] bytes) {
+        if (bytes == null) return null;
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return null;
         }
     }
 }

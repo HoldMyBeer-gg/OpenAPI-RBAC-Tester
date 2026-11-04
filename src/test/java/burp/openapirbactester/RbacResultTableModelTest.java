@@ -132,6 +132,28 @@ class RbacResultTableModelTest {
     }
 
     @Test
+    void divergenceFor_objectScopedEndpoint_identicalCredentialedBodies_isHorizontal() {
+        var idParam = new ApiEndpoint.ParameterInfo("id", "path", "1");
+        var ep = new ApiEndpoint(1, "https", "GET", "https://api.test.com", "/users/{id}", List.of(idParam), "");
+        var model = new RbacResultTableModel(List.of(ep),
+                List.of("anon", "user", "admin"), List.of(false, true, true));
+        model.setCell(0, 0, RbacCellResult.ok(401, 0, 0, "e"), null);
+        model.setCell(0, 1, RbacCellResult.ok(200, 9, 0, "same"), null);
+        model.setCell(0, 2, RbacCellResult.ok(200, 9, 0, "same"), null);
+        assertEquals(DivergenceLevel.HORIZONTAL, model.divergenceFor(0));
+    }
+
+    @Test
+    void divergenceFor_twoArgConstructor_treatsEveryIdentityAsCredentialed() {
+        var idParam = new ApiEndpoint.ParameterInfo("id", "path", "1");
+        var ep = new ApiEndpoint(1, "https", "GET", "https://api.test.com", "/users/{id}", List.of(idParam), "");
+        var model = new RbacResultTableModel(List.of(ep), List.of("a", "b"));
+        model.setCell(0, 0, RbacCellResult.ok(200, 9, 0, "same"), null);
+        model.setCell(0, 1, RbacCellResult.ok(200, 9, 0, "same"), null);
+        assertEquals(DivergenceLevel.HORIZONTAL, model.divergenceFor(0));
+    }
+
+    @Test
     void identityNames_returnsCopy() {
         var model = new RbacResultTableModel(
                 List.of(ep(1, "/a")),

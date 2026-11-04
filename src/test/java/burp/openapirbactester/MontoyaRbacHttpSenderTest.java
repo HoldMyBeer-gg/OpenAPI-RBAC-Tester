@@ -96,6 +96,29 @@ class MontoyaRbacHttpSenderTest {
     }
 
     @Test
+    void send_hashesResponseBody_soIdenticalBodiesCompareEqual() {
+        HttpRequest built = mock(HttpRequest.class);
+        when(generator.buildRequest(any(), any(), any())).thenReturn(built);
+
+        HttpResponse response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn((short) 200);
+        ByteArray body = mock(ByteArray.class);
+        when(body.length()).thenReturn(3);
+        when(body.getBytes()).thenReturn("abc".getBytes());
+        when(response.body()).thenReturn(body);
+
+        HttpRequestResponse rr = mock(HttpRequestResponse.class);
+        when(rr.response()).thenReturn(response);
+        when(http.sendRequest(built)).thenReturn(rr);
+
+        var result = sender.send(endpoint(), AuthConfig.empty(), null);
+
+        // SHA-256("abc")
+        assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                result.cell().bodyHash());
+    }
+
+    @Test
     void send_nullBody_countsAsZeroSize() {
         HttpRequest built = mock(HttpRequest.class);
         when(generator.buildRequest(any(), any(), any())).thenReturn(built);
@@ -112,6 +135,7 @@ class MontoyaRbacHttpSenderTest {
 
         assertEquals(204, result.cell().statusCode());
         assertEquals(0L, result.cell().bodySize());
+        assertNull(result.cell().bodyHash());
     }
 
     @Test

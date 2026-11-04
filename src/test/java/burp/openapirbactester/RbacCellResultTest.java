@@ -57,6 +57,18 @@ class RbacCellResultTest {
     }
 
     @Test
+    void ok_withBodyHash_keepsHash() {
+        var cell = RbacCellResult.ok(200, 3, 1, "abc123");
+        assertEquals("abc123", cell.bodyHash());
+    }
+
+    @Test
+    void ok_withoutHash_hasNullHash_andErrorHasNullHash() {
+        assertNull(RbacCellResult.ok(200, 0, 0).bodyHash());
+        assertNull(RbacCellResult.error("x", 0).bodyHash());
+    }
+
+    @Test
     void shortLabel_numericForOk_errForError() {
         assertEquals("200", RbacCellResult.ok(200, 0, 0).shortLabel());
         assertEquals("404", RbacCellResult.ok(404, 0, 0).shortLabel());

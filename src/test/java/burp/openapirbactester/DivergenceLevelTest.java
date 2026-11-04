@@ -95,6 +95,67 @@ class DivergenceLevelTest {
                 DivergenceLevel.classify(List.of(err())));
     }
 
+    // ---- horizontal (same-tier / object-level) checks ---------------------------------
+
+    private static RbacCellResult body(int status, String hash) { return RbacCellResult.ok(status, 10, 0, hash); }
+
+    @Test
+    void horizontal_twoCredentialedIdentitiesSameBody_onObjectScopedEndpoint_isPossibleIdor() {
+        // anon blocked, user and admin both get byte-identical records for /users/{id}.
+        var cells = List.of(body(401, "e"), body(200, "same"), body(200, "same"));
+        assertEquals(DivergenceLevel.HORIZONTAL,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true)));
+    }
+
+    @Test
+    void horizontal_notFlagged_whenBodiesDiffer() {
+        var cells = List.of(body(401, "e"), body(200, "mine"), body(200, "theirs"));
+        assertEquals(DivergenceLevel.TIERED,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true)));
+    }
+
+    @Test
+    void horizontal_notFlagged_whenEndpointHasNoPathParameter() {
+        var cells = List.of(body(401, "e"), body(200, "same"), body(200, "same"));
+        assertEquals(DivergenceLevel.TIERED,
+                DivergenceLevel.classify(cells, false, List.of(false, true, true)));
+    }
+
+    @Test
+    void horizontal_ignoresUncredentialedIdentities() {
+        // anon and user see the same body but anon has no credentials: that's "public", not IDOR.
+        var cells = List.of(body(200, "same"), body(200, "same"), body(200, "other"));
+        assertEquals(DivergenceLevel.CONSISTENT_ALLOW,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true)));
+    }
+
+    @Test
+    void horizontal_ignoresCellsWithoutHash() {
+        var cells = List.of(body(401, null), body(200, null), body(200, null));
+        assertEquals(DivergenceLevel.TIERED,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true)));
+    }
+
+    @Test
+    void horizontal_verticalInversionStillWins() {
+        var cells = List.of(body(200, "same"), body(200, "same"), body(403, "x"));
+        assertEquals(DivergenceLevel.DIVERGENT,
+                DivergenceLevel.classify(cells, true, List.of(true, true, true)));
+    }
+
+    @Test
+    void horizontal_labelAndExplanation() {
+        assertEquals("Possible IDOR", DivergenceLevel.HORIZONTAL.humanLabel());
+        assertTrue(DivergenceLevel.HORIZONTAL.explanation().toLowerCase().contains("horizontal"));
+    }
+
+    @Test
+    void summaryLabel_lowercasesFirstWordOnly_keepsAcronyms() {
+        assertEquals("possible IDOR", DivergenceLevel.HORIZONTAL.summaryLabel());
+        assertEquals("consistent allow", DivergenceLevel.CONSISTENT_ALLOW.summaryLabel());
+        assertEquals("tiered", DivergenceLevel.TIERED.summaryLabel());
+    }
+
     @Test
     void humanLabel_coversEveryEnumValue() {
         for (DivergenceLevel level : DivergenceLevel.values()) {

@@ -68,7 +68,9 @@ public class RbacComparisonDialog extends JDialog implements OpenAPIRbacTesterTa
         this.api = api;
         this.endpoints = endpoints;
         this.identities = identities;
-        this.model = new RbacResultTableModel(endpoints, identities.stream().map(Identity::name).toList());
+        this.model = new RbacResultTableModel(endpoints,
+                identities.stream().map(Identity::name).toList(),
+                identities.stream().map(i -> !i.authConfig().isEmpty()).toList());
         this.runner = new RbacRunner(sender, Math.max(1, concurrency));
         buildUi();
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -199,7 +201,7 @@ public class RbacComparisonDialog extends JDialog implements OpenAPIRbacTesterTa
             int count = histogram[level.ordinal()];
             if (count == 0) continue;
             if (!first) sb.append(", ");
-            sb.append(count).append(' ').append(level.humanLabel().toLowerCase());
+            sb.append(count).append(' ').append(level.summaryLabel());
             first = false;
         }
         histogramLabel.setText(sb.toString());
@@ -291,6 +293,7 @@ public class RbacComparisonDialog extends JDialog implements OpenAPIRbacTesterTa
             if (!isSelected) {
                 switch (level) {
                     case DIVERGENT -> c.setBackground(new Color(0xFFD6D6));
+                    case HORIZONTAL -> c.setBackground(new Color(0xFFD9B3));
                     case TIERED -> c.setBackground(new Color(0xDCF0DC));
                     case CONSISTENT_ALLOW -> c.setBackground(new Color(0xE8F5E8));
                     case CONSISTENT_DENY -> c.setBackground(new Color(0xF0F0F0));

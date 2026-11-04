@@ -21,12 +21,23 @@ public class RbacResultTableModel extends AbstractTableModel {
 
     private final List<ApiEndpoint> endpoints;
     private final List<String> identityNames;
+    private final List<Boolean> credentialed;
     private final RbacCellResult[][] cells;
     private final Object[][] rawResponses;
 
+    /** Every identity is treated as credentialed; see the three-argument form. */
     public RbacResultTableModel(List<ApiEndpoint> endpoints, List<String> identityNames) {
+        this(endpoints, identityNames, null);
+    }
+
+    /**
+     * @param credentialed per identity (same order as {@code identityNames}), whether it carries
+     *                     any credentials. Drives the horizontal (IDOR) check; null means all do.
+     */
+    public RbacResultTableModel(List<ApiEndpoint> endpoints, List<String> identityNames, List<Boolean> credentialed) {
         this.endpoints = new ArrayList<>(endpoints);
         this.identityNames = new ArrayList<>(identityNames);
+        this.credentialed = credentialed == null ? null : new ArrayList<>(credentialed);
         this.cells = new RbacCellResult[endpoints.size()][identityNames.size()];
         this.rawResponses = new Object[endpoints.size()][identityNames.size()];
     }
@@ -105,7 +116,7 @@ public class RbacResultTableModel extends AbstractTableModel {
         for (int c = 0; c < identityNames.size(); c++) {
             rowCells.add(cells[row][c]);
         }
-        return DivergenceLevel.classify(rowCells);
+        return DivergenceLevel.classify(rowCells, endpoints.get(row).hasPathParameter(), credentialed);
     }
 
     /** Summary of how many rows fall into each divergence bucket — used for the header stat. */

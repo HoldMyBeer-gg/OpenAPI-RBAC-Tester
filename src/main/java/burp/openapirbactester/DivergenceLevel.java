@@ -26,7 +26,14 @@ public enum DivergenceLevel {
     TIERED,
 
     /** Non-monotonic: a lower-priority identity got a 2xx that a higher-priority did not (or similar). */
-    DIVERGENT;
+    DIVERGENT,
+
+    /**
+     * Vertical tiering looks fine, but two authenticated identities received byte-identical
+     * 2xx bodies for an object-scoped endpoint. If each identity should only see its own
+     * objects, that is a horizontal escalation (IDOR / broken object-level authorization).
+     */
+    HORIZONTAL;
 
     /** Short human-readable label for UI columns and CSV output. */
     public String humanLabel() {
@@ -37,7 +44,14 @@ public enum DivergenceLevel {
             case CONSISTENT_DENY -> "Consistent deny";
             case TIERED -> "Tiered";
             case DIVERGENT -> "Divergent";
+            case HORIZONTAL -> "Possible IDOR";
         };
+    }
+
+    /** {@link #humanLabel()} for use mid-sentence ("3 tiered, 1 possible IDOR"): lowercases only the first character. */
+    public String summaryLabel() {
+        String label = humanLabel();
+        return Character.toLowerCase(label.charAt(0)) + label.substring(1);
     }
 
     /**
@@ -59,7 +73,40 @@ public enum DivergenceLevel {
                     "Higher-privilege identities reached further through the server's stack (auth → resource → success) than lower-privilege ones — healthy role separation.";
             case DIVERGENT ->
                     "A lower-privilege identity got further through the server's stack than a higher-privilege one — possible authorization inversion.";
+            case HORIZONTAL ->
+                    "Two authenticated identities received byte-identical 2xx responses for an object-scoped endpoint. If they should only see their own objects, this is a horizontal escalation (IDOR). Send both cells to Repeater and compare.";
         };
+    }
+
+    /**
+     * Full classification: the vertical stack-depth check from {@link #classify(List)}, then,
+     * when that found no inversion, a horizontal check on object-scoped endpoints.
+     *
+     * @param cells        row cells in identity-priority order (see {@link #classify(List)})
+     * @param objectScoped whether the endpoint addresses a specific object (has a path parameter)
+     * @param credentialed per identity, whether it carries any credentials; anonymous identities
+     *                     are ignored by the horizontal check because "everyone sees the same thing"
+     *                     is public, not an IDOR. Null or short lists treat the missing entries as
+     *                     credentialed.
+     */
+    public static DivergenceLevel classify(List<RbacCellResult> cells, boolean objectScoped, List<Boolean> credentialed) {
+        DivergenceLevel vertical = classify(cells);
+        if (vertical == DIVERGENT || vertical == UNKNOWN || vertical == ALL_ERRORED) return vertical;
+        if (!objectScoped) return vertical;
+        return sharesObjectAcrossIdentities(cells, credentialed) ? HORIZONTAL : vertical;
+    }
+
+    private static boolean sharesObjectAcrossIdentities(List<RbacCellResult> cells, List<Boolean> credentialed) {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < cells.size(); i++) {
+            boolean hasCreds = credentialed == null || i >= credentialed.size() || credentialed.get(i) == null
+                    || credentialed.get(i);
+            if (!hasCreds) continue;
+            RbacCellResult c = cells.get(i);
+            if (c.isError() || !c.is2xx() || c.bodyHash() == null) continue;
+            if (!seen.add(c.bodyHash())) return true;
+        }
+        return false;
     }
 
     /**

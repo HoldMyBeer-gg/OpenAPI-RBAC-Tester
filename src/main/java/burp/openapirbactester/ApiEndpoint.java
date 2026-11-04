@@ -71,6 +71,18 @@ public class ApiEndpoint {
         return parameters;
     }
 
+    /**
+     * True when the operation addresses a specific object via the path ({@code /users/{id}}).
+     * Such endpoints are where horizontal (same-tier) authorization bugs live, so the RBAC
+     * classifier applies its identical-body check only to them.
+     */
+    public boolean hasPathParameter() {
+        for (ParameterInfo p : parameters) {
+            if ("path".equalsIgnoreCase(p.getLocation())) return true;
+        }
+        return false;
+    }
+
     public String getDescription() {
         return description;
     }

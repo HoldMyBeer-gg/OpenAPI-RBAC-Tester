@@ -81,4 +81,13 @@ class ApiEndpointTest {
         assertTrue(ep.getRequiredSchemes().isEmpty());
         assertTrue(ep.getTags().isEmpty());
     }
+
+    @Test
+    void hasPathParameter_trueOnlyForPathLocation() {
+        var pathParam = new ApiEndpoint.ParameterInfo("id", "path", "1");
+        var queryParam = new ApiEndpoint.ParameterInfo("q", "query", "x");
+        assertTrue(new ApiEndpoint(1, "https", "GET", "", "/users/{id}", List.of(queryParam, pathParam), "").hasPathParameter());
+        assertFalse(new ApiEndpoint(1, "https", "GET", "", "/users", List.of(queryParam), "").hasPathParameter());
+        assertFalse(new ApiEndpoint(1, "https", "GET", "", "/users", List.of(), "").hasPathParameter());
+    }
 }

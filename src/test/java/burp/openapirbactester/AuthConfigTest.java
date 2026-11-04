@@ -115,10 +115,16 @@ class AuthConfigTest {
         assertFalse(noise.hasCredentials(), "non-auth extra headers are not credentials");
 
         for (String name : java.util.List.of("Cookie", "Authorization", "Proxy-Authorization",
-                "X-Auth-Token", "X-Session-Id", "X-Api-Key", "X-Access-JWT", "x-csrf-token")) {
+                "X-Auth-Token", "X-Session-Id", "X-Api-Key", "X-Access-JWT")) {
             AuthConfig c = new AuthConfig(null, null, null, null, null, null,
                     java.util.List.of(new AuthConfig.HeaderPair(name, "v")));
             assertTrue(c.hasCredentials(), name + " should count as a credential");
+        }
+
+        for (String name : java.util.List.of("X-CSRF-Token", "X-XSRF-TOKEN", "Idempotency-Key", "Sec-WebSocket-Key")) {
+            AuthConfig c = new AuthConfig(null, null, null, null, null, null,
+                    java.util.List.of(new AuthConfig.HeaderPair(name, "v")));
+            assertFalse(c.hasCredentials(), name + " is not a credential");
         }
     }
 }

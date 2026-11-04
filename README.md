@@ -18,7 +18,7 @@ Classification uses a stack-depth model rather than a plain allow/deny split:
 - **Consistent deny** (grey) — every identity hit the same wall. The resource may not exist for anyone, or everyone is blocked.
 - **Tiered** (light green) — higher-privilege identities reached further through the stack than lower-privilege ones. Healthy role separation, including subtler patterns like `403, 403, 404` where only admin passed auth.
 - **Divergent** (red) — a lower-privilege identity got further than a higher-privilege one. Possible authorization inversion.
-- **Possible IDOR** (orange) — vertical tiering looks fine, but two authenticated identities got byte-identical 2xx bodies for an object-scoped endpoint (one with a path parameter). If each identity should only see its own objects, that's a horizontal escalation. Anonymous identities are ignored for this check, since "everyone sees the same thing" is public, not IDOR.
+- **Possible IDOR** (orange) — vertical tiering looks fine, but two *peer* identities got byte-identical 2xx bodies for an object-scoped endpoint (a templated path like `/users/{id}`). Peers are identities that reached the same depth on every other endpoint in the run, so a user and an admin are never compared against each other, but two accounts with the same role are. Configure two same-role identities to use this. Anything an anonymous identity can also read is public and never flagged.
 
 Right-click any cell to send that exact `(endpoint, identity)` request to Repeater. Export the full matrix to CSV — with a human-readable explanation column — for reporting. Declare tag→tier rules (e.g. `Admin -> admin*`) to overlay violation assessments directly in the grid and CSV.
 

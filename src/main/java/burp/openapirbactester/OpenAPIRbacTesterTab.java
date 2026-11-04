@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -495,6 +496,20 @@ public class OpenAPIRbacTesterTab extends JPanel {
      * Parses spec content in a background thread to keep the UI responsive (BApp Store
      * criterion: use threads for slow operations). Updates the UI on the EDT when done.
      */
+    /** Parses a raw body, decoding it on the worker thread rather than the EDT. */
+    private void parseInBackground(ByteArray rawBody, String source) {
+        executor.submit(() -> {
+            try {
+                String content = new String(rawBody.getBytes(), StandardCharsets.UTF_8).trim();
+                OpenAPIParser.ParseResult result = parser.parse(source, content);
+                SwingUtilities.invokeLater(() -> applyParseResult(result, source));
+            } catch (Throwable t) {
+                logging.logToError("Parse failed: " + t.getMessage());
+                SwingUtilities.invokeLater(() -> setStatus("Parse failed: " + t.getMessage()));
+            }
+        });
+    }
+
     private void parseInBackground(String content, String source) {
         executor.submit(() -> {
             try {
@@ -993,20 +1008,32 @@ public class OpenAPIRbacTesterTab extends JPanel {
         HttpResponse response = rr.response();
         ByteArray rawBody = response != null ? response.body() : null;
 
-        // Decoding and sniffing the body can be slow for a large spec, so it happens off the
-        // EDT; the UI is updated once the result is known.
+        // Sniffing only needs the first few KB, but even that decode stays off the EDT; the
+        // full decode happens in the parse worker, so the whole body is never held twice.
         setStatus("Imported auth — inspecting response body...");
-        executor.submit(() -> {
-            String body = rawBody != null ? new String(rawBody.getBytes(), StandardCharsets.UTF_8) : null;
-            boolean haveSpecBody = HeaderClassifier.looksLikeSpecBody(body);
-            String trimmed = haveSpecBody ? body.trim() : null;
-            SwingUtilities.invokeLater(() ->
-                    finishImport(rawBody, trimmed, haveSpecBody, looksLikeSpecPath, fullUrl, baseUrl));
-        });
+        try {
+            executor.submit(() -> {
+                boolean haveSpecBody = HeaderClassifier.looksLikeSpecBody(decodePrefix(rawBody, SNIFF_BYTES));
+                SwingUtilities.invokeLater(() ->
+                        finishImport(rawBody, haveSpecBody, looksLikeSpecPath, fullUrl, baseUrl));
+            });
+        } catch (RejectedExecutionException e) {
+            // Extension is unloading; nothing left to do.
+            logging.logToOutput("Import skipped: extension is unloading.");
+        }
     }
 
-    /** Second half of {@link #applyImport}, back on the EDT with the body already decoded. */
-    private void finishImport(ByteArray rawBody, String trimmedBody, boolean haveSpecBody,
+    private static final int SNIFF_BYTES = 4096;
+
+    private static String decodePrefix(ByteArray body, int maxBytes) {
+        if (body == null) return null;
+        byte[] bytes = body.getBytes();
+        int n = Math.min(bytes.length, maxBytes);
+        return new String(bytes, 0, n, StandardCharsets.UTF_8);
+    }
+
+    /** Second half of {@link #applyImport}, back on the EDT with the body already sniffed. */
+    private void finishImport(ByteArray rawBody, boolean haveSpecBody,
                               boolean looksLikeSpecPath, String fullUrl, String baseUrl) {
         if (haveSpecBody || looksLikeSpecPath) {
             if (fullUrl != null) urlOrPathField.setText(fullUrl);
@@ -1015,7 +1042,7 @@ public class OpenAPIRbacTesterTab extends JPanel {
                 setStatus("Imported auth + spec body — parsing now...");
                 updateRequestPreview();
                 captureActiveIdentity();
-                parseInBackground(trimmedBody, fullUrl != null ? fullUrl : "pasted");
+                parseInBackground(rawBody, fullUrl != null ? fullUrl : "pasted");
                 return;
             }
             setStatus("Imported auth + spec URL — click Load.");

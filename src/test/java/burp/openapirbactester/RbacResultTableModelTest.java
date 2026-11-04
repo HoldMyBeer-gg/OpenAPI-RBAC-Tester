@@ -152,6 +152,50 @@ class RbacResultTableModelTest {
         assertEquals(DivergenceLevel.HORIZONTAL, model.divergenceFor(0));
     }
 
+    private static ApiEndpoint objectEp(int i, String path) {
+        return new ApiEndpoint(i, "https", "GET", "https://api.test.com", path,
+                List.of(new ApiEndpoint.ParameterInfo("id", "path", "1")), "");
+    }
+
+    @Test
+    void peers_userAndAdminDifferElsewhere_soSharedObjectIsNotIdor() {
+        var model = new RbacResultTableModel(List.of(ep(1, "/admin"), objectEp(2, "/users/{id}")),
+                List.of("user", "admin"), List.of(true, true));
+        model.setCell(0, 0, RbacCellResult.ok(403, 0, 0), null);
+        model.setCell(0, 1, RbacCellResult.ok(200, 5, 0, "cfg"), null);
+        model.setCell(1, 0, RbacCellResult.ok(200, 9, 0, "same"), null);
+        model.setCell(1, 1, RbacCellResult.ok(200, 9, 0, "same"), null);
+        assertEquals(DivergenceLevel.CONSISTENT_ALLOW, model.divergenceFor(1));
+    }
+
+    @Test
+    void peers_twoUsersBehaveAlikeEverywhere_soSharedObjectIsIdor() {
+        var model = new RbacResultTableModel(List.of(ep(1, "/admin"), objectEp(2, "/users/{id}")),
+                List.of("userA", "userB", "admin"), List.of(true, true, true));
+        model.setCell(0, 0, RbacCellResult.ok(403, 0, 0), null);
+        model.setCell(0, 1, RbacCellResult.ok(403, 0, 0), null);
+        model.setCell(0, 2, RbacCellResult.ok(200, 5, 0, "cfg"), null);
+        model.setCell(1, 0, RbacCellResult.ok(200, 9, 0, "same"), null);
+        model.setCell(1, 1, RbacCellResult.ok(200, 9, 0, "same"), null);
+        model.setCell(1, 2, RbacCellResult.ok(200, 9, 0, "same"), null);
+        assertEquals(DivergenceLevel.HORIZONTAL, model.divergenceFor(1));
+    }
+
+    @Test
+    void peers_laterRowCanRevokePeerStatus_andOtherRowsReclassify() {
+        var model = new RbacResultTableModel(List.of(ep(1, "/admin"), objectEp(2, "/users/{id}")),
+                List.of("user", "admin"), List.of(true, true));
+        model.setCell(1, 0, RbacCellResult.ok(200, 9, 0, "same"), null);
+        model.setCell(1, 1, RbacCellResult.ok(200, 9, 0, "same"), null);
+        assertEquals(DivergenceLevel.HORIZONTAL, model.divergenceFor(1), "no evidence of hierarchy yet");
+
+        model.setCell(0, 0, RbacCellResult.ok(403, 0, 0), null);
+        model.setCell(0, 1, RbacCellResult.ok(200, 5, 0, "cfg"), null);
+        assertEquals(DivergenceLevel.CONSISTENT_ALLOW, model.divergenceFor(1), "admin outranks user, not peers");
+        assertEquals(1, model.divergenceHistogram()[DivergenceLevel.CONSISTENT_ALLOW.ordinal()]);
+        assertEquals(0, model.divergenceHistogram()[DivergenceLevel.HORIZONTAL.ordinal()]);
+    }
+
     @Test
     void divergenceFor_twoArgConstructor_treatsEveryIdentityAsCredentialed() {
         var idParam = new ApiEndpoint.ParameterInfo("id", "path", "1");

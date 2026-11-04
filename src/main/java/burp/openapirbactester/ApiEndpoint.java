@@ -72,25 +72,14 @@ public class ApiEndpoint {
     }
 
     /**
-     * True when the operation addresses a specific object via the path ({@code /users/{id}}).
-     * Such endpoints are where horizontal (same-tier) authorization bugs live, so the RBAC
-     * classifier applies its identical-body check only to them.
-     */
-    public boolean hasPathParameter() {
-        for (ParameterInfo p : parameters) {
-            if ("path".equalsIgnoreCase(p.getLocation())) return true;
-        }
-        return false;
-    }
-
-    /**
-     * True when the operation addresses a specific object: either a declared path parameter
-     * or a template in the path itself ({@code /users/{id}}). The template check matters
-     * because path-item-level parameters are not merged into operations by the parser, and
-     * some specs never declare them at all.
+     * True when the operation addresses a specific object via a path template
+     * ({@code /users/{id}}). Such endpoints are where horizontal (same-tier) authorization
+     * bugs live, so the RBAC classifier applies its identical-body check only to them. The
+     * template is the signal rather than declared parameters: path-item-level parameters are
+     * not merged into operations by the parser, and some specs never declare them at all.
      */
     public boolean isObjectScoped() {
-        return hasPathParameter() || path.indexOf('{') >= 0;
+        return path.indexOf('{') >= 0;
     }
 
     public String getDescription() {

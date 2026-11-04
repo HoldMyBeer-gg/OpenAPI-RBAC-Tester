@@ -146,6 +146,40 @@ class DivergenceLevelTest {
     }
 
     @Test
+    void horizontal_requiresPeers_userAndAdminSharingAnObjectIsNotIdor() {
+        // admin legitimately sees what user sees; they are not peers, so no horizontal flag.
+        var cells = List.of(body(401, "e"), body(200, "same"), body(200, "same"));
+        boolean[][] peers = allPeers(3);
+        peers[1][2] = peers[2][1] = false;
+        assertEquals(DivergenceLevel.TIERED,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true), peers));
+    }
+
+    @Test
+    void horizontal_flaggedBetweenPeers_evenWhenANonPeerAlsoSeesIt() {
+        // userA and userB are peers and see the same object; admin seeing it too is irrelevant.
+        var cells = List.of(body(200, "same"), body(200, "same"), body(200, "same"));
+        boolean[][] peers = allPeers(3);
+        peers[0][2] = peers[2][0] = false;
+        peers[1][2] = peers[2][1] = false;
+        assertEquals(DivergenceLevel.HORIZONTAL,
+                DivergenceLevel.classify(cells, true, List.of(true, true, true), peers));
+    }
+
+    @Test
+    void horizontal_nullPeers_treatsEveryoneAsPeers() {
+        var cells = List.of(body(401, "e"), body(200, "same"), body(200, "same"));
+        assertEquals(DivergenceLevel.HORIZONTAL,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true), null));
+    }
+
+    private static boolean[][] allPeers(int n) {
+        boolean[][] p = new boolean[n][n];
+        for (boolean[] row : p) java.util.Arrays.fill(row, true);
+        return p;
+    }
+
+    @Test
     void horizontal_ignoresCellsWithoutHash() {
         var cells = List.of(body(401, null), body(200, null), body(200, null));
         assertEquals(DivergenceLevel.TIERED,

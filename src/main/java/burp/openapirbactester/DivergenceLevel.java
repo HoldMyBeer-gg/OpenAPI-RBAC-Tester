@@ -74,7 +74,7 @@ public enum DivergenceLevel {
             case DIVERGENT ->
                     "A lower-privilege identity got further through the server's stack than a higher-privilege one — possible authorization inversion.";
             case HORIZONTAL ->
-                    "Two authenticated identities received byte-identical 2xx responses for an object-scoped endpoint. If they should only see their own objects, this is a horizontal escalation (IDOR). Send both cells to Repeater and compare.";
+                    "Two authenticated identities that behaved alike on every other endpoint received byte-identical 2xx responses for an object-scoped endpoint. If they should only see their own objects, this is a horizontal escalation (IDOR). Send both cells to Repeater and compare.";
         };
     }
 
@@ -90,30 +90,54 @@ public enum DivergenceLevel {
      *                     credentialed.
      */
     public static DivergenceLevel classify(List<RbacCellResult> cells, boolean objectScoped, List<Boolean> credentialed) {
+        return classify(cells, objectScoped, credentialed, null);
+    }
+
+    /**
+     * As {@link #classify(List, boolean, List)}, restricted to peers: the horizontal check
+     * only fires for two identities that are peers of each other. An admin reading the same
+     * object as a user is hierarchy, not a leak; two users reading the same object is.
+     *
+     * @param peers symmetric matrix over identity indexes; {@code null} means everyone is a
+     *              peer of everyone (no evidence of hierarchy).
+     */
+    public static DivergenceLevel classify(List<RbacCellResult> cells, boolean objectScoped,
+                                           List<Boolean> credentialed, boolean[][] peers) {
         DivergenceLevel vertical = classify(cells);
         if (vertical == DIVERGENT || vertical == UNKNOWN || vertical == ALL_ERRORED) return vertical;
         if (!objectScoped) return vertical;
-        return sharesObjectAcrossIdentities(cells, credentialed) ? HORIZONTAL : vertical;
+        return sharesObjectBetweenPeers(cells, credentialed, peers) ? HORIZONTAL : vertical;
     }
 
-    private static boolean sharesObjectAcrossIdentities(List<RbacCellResult> cells, List<Boolean> credentialed) {
+    /** Stack depth of a completed, non-error cell: 2 = allowed, 1 = past auth but 404, 0 = blocked. */
+    public static int depth(RbacCellResult c) {
+        return depthOf(c);
+    }
+
+    private static boolean sharesObjectBetweenPeers(List<RbacCellResult> cells, List<Boolean> credentialed,
+                                                    boolean[][] peers) {
         // Anything an anonymous identity can read is public; the same body showing up for
         // credentialed identities is then expected, not a leak.
         java.util.Set<String> publicHashes = new java.util.HashSet<>();
-        java.util.Set<String> seen = new java.util.HashSet<>();
         for (int i = 0; i < cells.size(); i++) {
             RbacCellResult c = cells.get(i);
-            if (c.isError() || !c.is2xx() || c.bodyHash() == null) continue;
-            if (!isCredentialed(credentialed, i)) publicHashes.add(c.bodyHash());
+            if (isReadable(c) && !isCredentialed(credentialed, i)) publicHashes.add(c.bodyHash());
         }
         for (int i = 0; i < cells.size(); i++) {
-            if (!isCredentialed(credentialed, i)) continue;
-            RbacCellResult c = cells.get(i);
-            if (c.isError() || !c.is2xx() || c.bodyHash() == null) continue;
-            if (publicHashes.contains(c.bodyHash())) continue;
-            if (!seen.add(c.bodyHash())) return true;
+            RbacCellResult a = cells.get(i);
+            if (!isReadable(a) || !isCredentialed(credentialed, i) || publicHashes.contains(a.bodyHash())) continue;
+            for (int j = i + 1; j < cells.size(); j++) {
+                RbacCellResult b = cells.get(j);
+                if (!isReadable(b) || !isCredentialed(credentialed, j)) continue;
+                if (peers != null && !peers[i][j]) continue;
+                if (a.bodyHash().equals(b.bodyHash())) return true;
+            }
         }
         return false;
+    }
+
+    private static boolean isReadable(RbacCellResult c) {
+        return !c.isError() && c.is2xx() && c.bodyHash() != null;
     }
 
     private static boolean isCredentialed(List<Boolean> credentialed, int i) {

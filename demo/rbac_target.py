@@ -25,6 +25,7 @@ Endpoints are tiered so every divergence class shows up in the grid:
     POST   /auth/logout               200 for any token                         <- destructive
     GET    /reports?from=..&to=..     401 anon, 200 user/admin (query params in the spec)
     GET    /broken/idor/{id}          200 for ANY token, any id                 <- the bug to find
+                                     (needs user + user2 configured: peers)
     GET    /broken/support-view       401 anon, 200 user, 403 admin             <- inverted check, shows red
 """
 
@@ -37,13 +38,14 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8099
 
 TOKENS = {
     "user-token": {"name": "user", "id": 7, "role": "user"},
+    "user2-token": {"name": "user2", "id": 9, "role": "user"},
     "admin-token": {"name": "admin", "id": 1, "role": "admin"},
 }
 
 USERS = {
     1: {"id": 1, "name": "admin", "email": "admin@example.test"},
     7: {"id": 7, "name": "user", "email": "user@example.test"},
-    9: {"id": 9, "name": "other", "email": "other@example.test"},
+    9: {"id": 9, "name": "user2", "email": "user2@example.test"},
 }
 
 
@@ -217,5 +219,6 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"RBAC target on http://127.0.0.1:{PORT}   spec: http://127.0.0.1:{PORT}/openapi.json")
-    print("tokens: user-token, admin-token (Bearer, X-API-Key, or session= cookie)")
+    print("tokens: user-token, user2-token, admin-token (Bearer, X-API-Key, or session= cookie)")
+    print("user and user2 are peers: the IDOR row only lights up when both are configured")
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

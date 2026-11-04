@@ -2,6 +2,7 @@ package burp.openapirbactester;
 
 import javax.swing.table.AbstractTableModel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -11,6 +12,11 @@ import java.util.List;
  * <p>
  * Thread-safety: all mutation must happen on the EDT (Swing requirement). The runner pushes
  * results via {@link #setCell}; the dialog wraps that call in {@code SwingUtilities.invokeLater}.
+ * <p>
+ * Row classifications are cached. Two identities are <em>peers</em> while every row where both
+ * have completed shows the same stack depth; the horizontal (IDOR) check only compares peers,
+ * so a user and an admin that diverge on any endpoint are never treated as leaking to each
+ * other. Peer status can only be revoked as results arrive, never regained.
  */
 public class RbacResultTableModel extends AbstractTableModel {
 
@@ -24,6 +30,8 @@ public class RbacResultTableModel extends AbstractTableModel {
     private final List<Boolean> credentialed;
     private final RbacCellResult[][] cells;
     private final Object[][] rawResponses;
+    private final boolean[][] peers;
+    private final DivergenceLevel[] rowLevel;
 
     /** Every identity is treated as credentialed; see the three-argument form. */
     public RbacResultTableModel(List<ApiEndpoint> endpoints, List<String> identityNames) {
@@ -40,6 +48,9 @@ public class RbacResultTableModel extends AbstractTableModel {
         this.credentialed = credentialed == null ? null : new ArrayList<>(credentialed);
         this.cells = new RbacCellResult[endpoints.size()][identityNames.size()];
         this.rawResponses = new Object[endpoints.size()][identityNames.size()];
+        this.peers = new boolean[identityNames.size()][identityNames.size()];
+        for (boolean[] row : peers) Arrays.fill(row, true);
+        this.rowLevel = new DivergenceLevel[endpoints.size()];
     }
 
     @Override
@@ -90,9 +101,37 @@ public class RbacResultTableModel extends AbstractTableModel {
     public void setCell(int row, int col, RbacCellResult result, Object raw) {
         cells[row][col] = result;
         rawResponses[row][col] = raw;
+        if (revokePeers(row, col)) {
+            Arrays.fill(rowLevel, null);
+        } else {
+            rowLevel[row] = null;
+        }
         int divCol = FIRST_IDENTITY_COL + identityNames.size();
         fireTableCellUpdated(row, FIRST_IDENTITY_COL + col);
         fireTableCellUpdated(row, divCol);
+    }
+
+    /**
+     * Compares the newly completed cell against the other completed cells in its row and
+     * drops peer status for any identity that reached a different depth.
+     *
+     * @return true if at least one peer relation was revoked (other rows may reclassify)
+     */
+    private boolean revokePeers(int row, int col) {
+        RbacCellResult mine = cells[row][col];
+        if (mine == null || mine.isError()) return false;
+        boolean changed = false;
+        int myDepth = DivergenceLevel.depth(mine);
+        for (int other = 0; other < identityNames.size(); other++) {
+            if (other == col || !peers[col][other]) continue;
+            RbacCellResult theirs = cells[row][other];
+            if (theirs == null || theirs.isError()) continue;
+            if (DivergenceLevel.depth(theirs) != myDepth) {
+                peers[col][other] = peers[other][col] = false;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     public RbacCellResult getCell(int row, int col) {
@@ -111,12 +150,21 @@ public class RbacResultTableModel extends AbstractTableModel {
         return endpoints.get(row);
     }
 
+    /** Whether identities {@code a} and {@code b} have shown the same stack depth on every shared row so far. */
+    public boolean arePeers(int a, int b) {
+        return peers[a][b];
+    }
+
     public DivergenceLevel divergenceFor(int row) {
+        DivergenceLevel cached = rowLevel[row];
+        if (cached != null) return cached;
         List<RbacCellResult> rowCells = new ArrayList<>(identityNames.size());
         for (int c = 0; c < identityNames.size(); c++) {
             rowCells.add(cells[row][c]);
         }
-        return DivergenceLevel.classify(rowCells, endpoints.get(row).isObjectScoped(), credentialed);
+        DivergenceLevel level = DivergenceLevel.classify(rowCells, endpoints.get(row).isObjectScoped(), credentialed, peers);
+        rowLevel[row] = level;
+        return level;
     }
 
     /** Summary of how many rows fall into each divergence bucket — used for the header stat. */

@@ -75,8 +75,10 @@ public class RbacComparisonDialog extends JDialog implements OpenAPIRbacTesterTa
         buildUi();
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
-            @Override public void windowClosing(WindowEvent e) { runner.cancel(); runner.shutdown(); }
-            @Override public void windowClosed(WindowEvent e) { runner.shutdown(); }
+            // Closing must not block the EDT while in-flight sends drain: abort hard-stops
+            // without waiting. Cancelled tasks that were already dispatched just return.
+            @Override public void windowClosing(WindowEvent e) { runner.abort(); }
+            @Override public void windowClosed(WindowEvent e) { runner.abort(); }
         });
     }
 

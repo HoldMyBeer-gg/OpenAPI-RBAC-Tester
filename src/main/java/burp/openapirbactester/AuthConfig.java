@@ -104,6 +104,10 @@ public final class AuthConfig {
     private static boolean looksLikeCredentialHeader(String name) {
         String n = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
         if (n.equals("cookie") || n.equals("authorization") || n.equals("proxy-authorization")) return true;
+        // Headers that carry a token-shaped value but identify a request, not a principal.
+        if (n.contains("csrf") || n.contains("xsrf") || n.contains("idempotency") || n.contains("websocket")) {
+            return false;
+        }
         return n.contains("token") || n.contains("session") || n.contains("auth")
                 || n.contains("key") || n.contains("jwt") || n.contains("secret");
     }

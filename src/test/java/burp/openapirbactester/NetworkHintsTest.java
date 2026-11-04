@@ -62,6 +62,17 @@ class NetworkHintsTest {
     }
 
     @Test
+    void projectDefersToUser_butUserOptionsUnreadable_returnsNull_notStaleProjectValues() {
+        // Burp keeps the old host/port in the project JSON after switching to user options.
+        String staleProject = """
+                {"project_options":{"connections":{
+                  "socks_proxy":{"host":"10.0.0.5","port":1080,"use_proxy":true,"use_user_options":true},
+                  "upstream_proxy":{"servers":[{"enabled":true,"proxy_host":"old","proxy_port":1,"destination_host":"*"}],"use_user_options":true}}}}""";
+        assertNull(NetworkHints.describe(staleProject, null));
+        assertNull(NetworkHints.describe(staleProject, "not json"));
+    }
+
+    @Test
     void garbageOrNull_returnsNull() {
         assertNull(NetworkHints.describe("not json", null));
         assertNull(NetworkHints.describe(null, null));

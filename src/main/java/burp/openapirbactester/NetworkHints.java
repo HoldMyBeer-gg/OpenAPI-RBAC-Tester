@@ -68,17 +68,20 @@ final class NetworkHints {
 
     /**
      * Project settings win unless they say {@code use_user_options}, in which case the user
-     * settings apply. Falls back to whichever one exists.
+     * settings apply. When the project defers and the user section is unreadable the answer
+     * is unknown, not the project's stale values: Burp keeps the old host/port in the project
+     * JSON after the switch, and naming them would send the user to debug the wrong proxy.
      */
     private static JsonNode pick(JsonNode project, JsonNode user, String section) {
         JsonNode fromProject = project != null ? project.path(section) : null;
         JsonNode fromUser = user != null ? user.path(section) : null;
+        boolean haveUser = fromUser != null && !fromUser.isMissingNode();
         if (fromProject != null && !fromProject.isMissingNode()) {
-            if (fromProject.path("use_user_options").asBoolean(false) && fromUser != null && !fromUser.isMissingNode()) {
-                return fromUser;
+            if (fromProject.path("use_user_options").asBoolean(false)) {
+                return haveUser ? fromUser : null;
             }
             return fromProject;
         }
-        return fromUser != null && !fromUser.isMissingNode() ? fromUser : null;
+        return haveUser ? fromUser : null;
     }
 }

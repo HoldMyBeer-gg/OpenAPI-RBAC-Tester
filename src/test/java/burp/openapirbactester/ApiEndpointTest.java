@@ -83,6 +83,15 @@ class ApiEndpointTest {
     }
 
     @Test
+    void isObjectScoped_trueForTemplatedPath_evenWithoutDeclaredParameters() {
+        // Path-item-level parameters are not merged into operations by the parser, and some
+        // specs never declare them; the template in the path is the reliable signal.
+        assertTrue(new ApiEndpoint(1, "https", "GET", "", "/users/{id}", List.of(), "").isObjectScoped());
+        assertTrue(new ApiEndpoint(1, "https", "GET", "", "/users", List.of(new ApiEndpoint.ParameterInfo("id", "path", "1")), "").isObjectScoped());
+        assertFalse(new ApiEndpoint(1, "https", "GET", "", "/users", List.of(), "").isObjectScoped());
+    }
+
+    @Test
     void hasPathParameter_trueOnlyForPathLocation() {
         var pathParam = new ApiEndpoint.ParameterInfo("id", "path", "1");
         var queryParam = new ApiEndpoint.ParameterInfo("q", "query", "x");

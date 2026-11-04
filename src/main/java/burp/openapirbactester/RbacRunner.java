@@ -118,6 +118,15 @@ public class RbacRunner {
         return cancelled.get();
     }
 
+    /**
+     * Cancels and hard-stops the pool without waiting. For extension unload, where several
+     * runners may be live and a per-runner wait would add up on the caller's thread.
+     */
+    public void abort() {
+        cancelled.set(true);
+        executor.shutdownNow();
+    }
+
     /** Releases the worker pool. Waits briefly for in-flight tasks, then hard-stops. */
     public void shutdown() {
         executor.shutdown();

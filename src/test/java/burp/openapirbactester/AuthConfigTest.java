@@ -100,4 +100,25 @@ class AuthConfigTest {
         assertEquals("admin", a.basicUser());
         assertEquals("hunter2", a.basicPass());
     }
+
+    @Test
+    void hasCredentials_distinguishesAuthHeadersFromBrowserNoise() {
+        assertFalse(AuthConfig.empty().hasCredentials());
+        assertTrue(new AuthConfig("tok", null, null, null, null, null).hasCredentials());
+        assertTrue(new AuthConfig(null, "k", "X-API-Key", null, null, null).hasCredentials());
+        assertTrue(new AuthConfig(null, null, null, null, "bob", "pw").hasCredentials());
+
+        AuthConfig noise = new AuthConfig(null, null, null, null, null, null, java.util.List.of(
+                new AuthConfig.HeaderPair("X-Requested-With", "XMLHttpRequest"),
+                new AuthConfig.HeaderPair("Sec-GPC", "1"),
+                new AuthConfig.HeaderPair("X-Tenant", "acme")));
+        assertFalse(noise.hasCredentials(), "non-auth extra headers are not credentials");
+
+        for (String name : java.util.List.of("Cookie", "Authorization", "Proxy-Authorization",
+                "X-Auth-Token", "X-Session-Id", "X-Api-Key", "X-Access-JWT", "x-csrf-token")) {
+            AuthConfig c = new AuthConfig(null, null, null, null, null, null,
+                    java.util.List.of(new AuthConfig.HeaderPair(name, "v")));
+            assertTrue(c.hasCredentials(), name + " should count as a credential");
+        }
+    }
 }

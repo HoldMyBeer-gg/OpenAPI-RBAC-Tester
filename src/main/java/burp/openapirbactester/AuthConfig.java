@@ -86,6 +86,28 @@ public final class AuthConfig {
         return !hasBearer() && !hasApiKey() && !hasBasic() && extraHeaders.isEmpty();
     }
 
+    /**
+     * Whether this config carries something that identifies a principal: bearer, API key,
+     * basic auth, or an extra header that looks like one (Cookie, Authorization, anything
+     * with token/session/key/auth in its name). Unlike {@link #isEmpty()}, a config holding
+     * only browser noise such as X-Requested-With does not count. Used by the RBAC grid to
+     * tell "anonymous" from "logged in" without trusting the identity's name.
+     */
+    public boolean hasCredentials() {
+        if (hasBearer() || hasApiKey() || hasBasic()) return true;
+        for (HeaderPair h : extraHeaders) {
+            if (looksLikeCredentialHeader(h.name())) return true;
+        }
+        return false;
+    }
+
+    private static boolean looksLikeCredentialHeader(String name) {
+        String n = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
+        if (n.equals("cookie") || n.equals("authorization") || n.equals("proxy-authorization")) return true;
+        return n.contains("token") || n.contains("session") || n.contains("auth")
+                || n.contains("key") || n.contains("jwt") || n.contains("secret");
+    }
+
     public String bearerToken() { return bearerToken; }
     public String apiKeyValue() { return apiKeyValue; }
     public String apiKeyName() { return apiKeyName; }

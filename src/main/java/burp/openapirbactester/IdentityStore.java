@@ -30,6 +30,9 @@ public class IdentityStore {
     static final String KEY_COUNT = PREFIX + "count";
     static final String KEY_ACTIVE = PREFIX + "active";
 
+    /** Key prefix used by releases named OpenAPI-Bifrost; migrated on first load. */
+    static final String LEGACY_PREFIX = "bifrost.identity.";
+
     /**
      * Thin persistence abstraction. The Montoya adapter is thread-safe for single-JVM
      * usage; no additional synchronisation is needed in IdentityStore as long as all
@@ -142,6 +145,7 @@ public class IdentityStore {
     }
 
     private void load() {
+        if (prefs.get(KEY_COUNT) == null) migrateLegacyKeys();
         int count = parseIntOrDefault(prefs.get(KEY_COUNT), -1);
         if (count <= 0) {
             identities.add(Identity.empty("Default"));
@@ -166,6 +170,23 @@ public class IdentityStore {
         }
         int active = parseIntOrDefault(prefs.get(KEY_ACTIVE), 0);
         activeIndex = Math.max(0, Math.min(active, identities.size() - 1));
+    }
+
+    /**
+     * Copies identities saved under {@link #LEGACY_PREFIX} to the current prefix and
+     * removes the old keys. Only called when nothing exists under the new prefix, so a
+     * user upgrading from the old name keeps their configured identities.
+     */
+    private void migrateLegacyKeys() {
+        List<String> legacy = new ArrayList<>();
+        for (String k : prefs.keys()) {
+            if (k.startsWith(LEGACY_PREFIX)) legacy.add(k);
+        }
+        for (String k : legacy) {
+            String value = prefs.get(k);
+            if (value != null) prefs.put(PREFIX + k.substring(LEGACY_PREFIX.length()), value);
+            prefs.remove(k);
+        }
     }
 
     private void assertUniqueName(String name, int ignoreIndex) {

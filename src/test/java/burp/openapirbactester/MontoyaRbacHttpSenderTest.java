@@ -119,6 +119,27 @@ class MontoyaRbacHttpSenderTest {
     }
 
     @Test
+    void send_emptyBody_hasNoHash_soItCannotCollideAcrossIdentities() {
+        HttpRequest built = mock(HttpRequest.class);
+        when(generator.buildRequest(any(), any(), any())).thenReturn(built);
+
+        HttpResponse response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn((short) 204);
+        ByteArray body = mock(ByteArray.class);
+        when(body.length()).thenReturn(0);
+        when(body.getBytes()).thenReturn(new byte[0]);
+        when(response.body()).thenReturn(body);
+
+        HttpRequestResponse rr = mock(HttpRequestResponse.class);
+        when(rr.response()).thenReturn(response);
+        when(http.sendRequest(built)).thenReturn(rr);
+
+        var result = sender.send(endpoint(), AuthConfig.empty(), null);
+
+        assertNull(result.cell().bodyHash());
+    }
+
+    @Test
     void send_nullBody_countsAsZeroSize() {
         HttpRequest built = mock(HttpRequest.class);
         when(generator.buildRequest(any(), any(), any())).thenReturn(built);

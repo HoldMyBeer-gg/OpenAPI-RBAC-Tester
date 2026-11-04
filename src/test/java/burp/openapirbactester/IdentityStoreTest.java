@@ -267,4 +267,37 @@ class IdentityStoreTest {
         // Unrelated keys must be untouched.
         assertEquals("should-survive", prefs.get("unrelated-key"));
     }
+
+    @Test
+    void load_migratesIdentitiesSavedUnderTheOldBifrostPrefix() {
+        Identity user = new Identity("user", new AuthConfig("u-token", null, null, null, null, null), "");
+        Identity admin = new Identity("admin", new AuthConfig("a-token", null, null, null, null, null), "https://staging");
+        prefs.put("bifrost.identity.count", "2");
+        prefs.put("bifrost.identity.active", "1");
+        prefs.put("bifrost.identity.0", user.serialise());
+        prefs.put("bifrost.identity.1", admin.serialise());
+
+        IdentityStore store = new IdentityStore(prefs);
+
+        assertEquals(2, store.size());
+        assertEquals("user", store.get(0).name());
+        assertEquals("admin", store.get(1).name());
+        assertEquals("a-token", store.get(1).authConfig().bearerToken());
+        assertEquals(1, store.activeIndex());
+        assertEquals("2", prefs.get("rbactester.identity.count"), "migrated under the new prefix");
+        assertNull(prefs.get("bifrost.identity.count"), "old keys removed after migration");
+    }
+
+    @Test
+    void load_newPrefixWins_whenBothPrefixesExist() {
+        prefs.put("bifrost.identity.count", "1");
+        prefs.put("bifrost.identity.0", Identity.empty("old").serialise());
+        prefs.put("rbactester.identity.count", "1");
+        prefs.put("rbactester.identity.0", Identity.empty("new").serialise());
+
+        IdentityStore store = new IdentityStore(prefs);
+
+        assertEquals(1, store.size());
+        assertEquals("new", store.get(0).name());
+    }
 }

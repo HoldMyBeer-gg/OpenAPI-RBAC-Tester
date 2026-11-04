@@ -29,7 +29,7 @@ Destructive endpoints (`/logout`, `DELETE`, `/revoke`, etc.) are detected before
 Multiple ways in:
 
 - **Drag and drop** a JSON/YAML file onto the drop zone.
-- **Paste a URL or file path**, optionally filling Extra Headers with any auth the spec endpoint requires, then click Load.
+- **Paste a URL or file path**, optionally filling Extra Headers with any auth the spec endpoint requires, then click Load. HTTPS spec hosts have their certificate verified by default; untick **Verify TLS** for staging hosts with self-signed or internal-CA certificates.
 - **Right-click any request in Proxy / Repeater / Logger → Send to OpenAPI-RBAC-Tester.** This is the fast path: host, base URL, and auth headers (cookies, bearer, API keys minus browser noise) are auto-imported. If the response body is an OpenAPI spec, it's auto-parsed — one click from "I have a working browser session" to a parsed endpoint list. If it isn't but the host suggests a spec (`/openapi.json`, `/swagger.json`, `/v3/api-docs`), the URL field pre-fills so Load is a single click.
 - **Paste raw spec text** into the textarea and hit Parse.
 

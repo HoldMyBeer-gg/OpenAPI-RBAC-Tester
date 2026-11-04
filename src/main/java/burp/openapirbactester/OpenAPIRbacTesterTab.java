@@ -68,6 +68,7 @@ public class OpenAPIRbacTesterTab extends JPanel {
     private final Set<AbortableRun> activeRuns = ConcurrentHashMap.newKeySet();
 
     private JTextField urlOrPathField;
+    private JCheckBox verifyTlsCheckBox;
     private RawEditor rawSpecEditor;
     private Timer filterDebounce;
     private JTextField baseUrlOverrideField;
@@ -149,7 +150,10 @@ public class OpenAPIRbacTesterTab extends JPanel {
         browseBtn.addActionListener(e -> doBrowse());
         JButton loadBtn = new JButton("Load");
         loadBtn.addActionListener(e -> doLoad());
-        addFormRow(topPanel, 1, "Parse from local file or URL:", urlOrPathField, browseBtn, loadBtn);
+        verifyTlsCheckBox = new JCheckBox("Verify TLS", true);
+        verifyTlsCheckBox.setToolTipText("Verify the spec host's certificate when fetching over https. "
+                + "Untick for staging hosts with self-signed or internal-CA certificates.");
+        addFormRow(topPanel, 1, "Parse from local file or URL:", urlOrPathField, browseBtn, loadBtn, verifyTlsCheckBox);
 
         // Base URL override row.
         baseUrlOverrideField = new JTextField();
@@ -369,15 +373,22 @@ public class OpenAPIRbacTesterTab extends JPanel {
     void loadFromUrl(String url) {
         try {
             HttpRequest req = applyAuthToFetch(HttpRequest.httpRequestFromUrl(url), getAuthConfig());
-            // The spec URL is user-supplied and often external: verify its certificate. Only
-            // for https, though: with the TLS option set, Burp never sends a plain-http request.
-            var response = url.startsWith("https://")
+            // The spec URL is user-supplied and often external: verify its certificate by
+            // default. Only for https, though: with the TLS option set, Burp never sends a
+            // plain-http request. The checkbox exists for self-signed staging hosts.
+            boolean verifying = url.startsWith("https://") && verifyTlsCheckBox.isSelected();
+            var response = verifying
                     ? api.http().sendRequest(req, RequestOptions.requestOptions().withUpstreamTLSVerification())
                     : api.http().sendRequest(req);
             var httpResponse = response.response();
             if (httpResponse == null) {
+                StringBuilder msg = new StringBuilder("No response from ").append(url);
                 String hint = networkHint();
-                throw new IOException("No response from " + url + (hint != null ? ". " + hint : ""));
+                if (hint != null) msg.append(". ").append(hint);
+                if (verifying) {
+                    msg.append(". If the host uses a self-signed or internal-CA certificate, untick \"Verify TLS\" and retry");
+                }
+                throw new IOException(msg.toString());
             }
             short status = httpResponse.statusCode();
             if (status < 200 || status >= 300) {

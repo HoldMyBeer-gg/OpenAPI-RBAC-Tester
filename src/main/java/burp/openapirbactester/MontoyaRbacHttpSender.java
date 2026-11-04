@@ -7,6 +7,7 @@ import burp.api.montoya.http.message.responses.HttpResponse;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 /**
  * Production {@link RbacHttpSender} that builds a request via {@link RequestGenerator}
@@ -42,7 +43,9 @@ public class MontoyaRbacHttpSender implements RbacHttpSender {
                 return new SendResult(RbacCellResult.error("no response", elapsed), rr);
             }
             long bodyLen = resp.body() != null ? resp.body().length() : 0;
-            String hash = resp.body() != null ? sha256Hex(resp.body().getBytes()) : null;
+            // No hash for empty bodies: a 204 carries no object, so two identical empties
+            // must not read as "same object".
+            String hash = bodyLen > 0 ? sha256Hex(resp.body().getBytes()) : null;
             return new SendResult(RbacCellResult.ok(resp.statusCode(), bodyLen, elapsed, hash), rr);
         } catch (Throwable t) {
             long elapsed = System.currentTimeMillis() - t0;
@@ -55,10 +58,7 @@ public class MontoyaRbacHttpSender implements RbacHttpSender {
     static String sha256Hex(byte[] bytes) {
         if (bytes == null) return null;
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
-            StringBuilder sb = new StringBuilder(digest.length * 2);
-            for (byte b : digest) sb.append(String.format("%02x", b));
-            return sb.toString();
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException e) {
             return null;
         }

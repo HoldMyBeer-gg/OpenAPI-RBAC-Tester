@@ -144,6 +144,15 @@ class RbacResultTableModelTest {
     }
 
     @Test
+    void divergenceFor_templatedPathWithoutDeclaredParams_stillObjectScoped() {
+        var ep = new ApiEndpoint(1, "https", "GET", "https://api.test.com", "/users/{id}", List.of(), "");
+        var model = new RbacResultTableModel(List.of(ep), List.of("user", "admin"), List.of(true, true));
+        model.setCell(0, 0, RbacCellResult.ok(200, 9, 0, "same"), null);
+        model.setCell(0, 1, RbacCellResult.ok(200, 9, 0, "same"), null);
+        assertEquals(DivergenceLevel.HORIZONTAL, model.divergenceFor(0));
+    }
+
+    @Test
     void divergenceFor_twoArgConstructor_treatsEveryIdentityAsCredentialed() {
         var idParam = new ApiEndpoint.ParameterInfo("id", "path", "1");
         var ep = new ApiEndpoint(1, "https", "GET", "https://api.test.com", "/users/{id}", List.of(idParam), "");

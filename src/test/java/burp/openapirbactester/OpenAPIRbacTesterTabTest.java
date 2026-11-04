@@ -97,6 +97,61 @@ class OpenAPIRbacTesterTabTest {
     }
 
     @Test
+    void loadFromUrl_https_withVerifyTlsUnticked_sendsWithoutTlsOptions() {
+        javax.swing.JCheckBox verify = findCheckBox(tab, "Verify TLS");
+        assertTrue(verify != null, "Verify TLS checkbox should be on the tab");
+        assertTrue(verify.isSelected(), "verification is on by default");
+        verify.setSelected(false);
+
+        HttpRequest req = mock(HttpRequest.class);
+        when(factory.httpRequestFromUrl(SPEC_URL)).thenReturn(req);
+        ByteArray body = mock(ByteArray.class);
+        when(body.getBytes()).thenReturn("{}".getBytes(StandardCharsets.UTF_8));
+        HttpResponse response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn((short) 200);
+        when(response.body()).thenReturn(body);
+        HttpRequestResponse rr = mock(HttpRequestResponse.class);
+        when(rr.response()).thenReturn(response);
+        when(http.sendRequest(req)).thenReturn(rr);
+
+        tab.loadFromUrl(SPEC_URL);
+
+        verify(http).sendRequest(req);
+        verify(http, never()).sendRequest(any(HttpRequest.class), any(RequestOptions.class));
+    }
+
+    @Test
+    void loadFromUrl_noResponse_overHttpsWithVerification_pointsAtTheCheckbox() throws Exception {
+        HttpRequest req = mock(HttpRequest.class);
+        when(factory.httpRequestFromUrl(SPEC_URL)).thenReturn(req);
+        RequestOptions base = mock(RequestOptions.class);
+        when(factory.requestOptions()).thenReturn(base);
+        when(base.withUpstreamTLSVerification()).thenReturn(base);
+        HttpRequestResponse rr = mock(HttpRequestResponse.class);
+        when(rr.response()).thenReturn(null);
+        when(http.sendRequest(req, base)).thenReturn(rr);
+        when(api.burpSuite().exportProjectOptionsAsJson(any(String[].class))).thenReturn("{}");
+
+        tab.loadFromUrl(SPEC_URL);
+        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+
+        String status = tab.statusText();
+        assertTrue(status.contains("No response"), status);
+        assertTrue(status.contains("Verify TLS"), "should tell the user how to get past a self-signed cert: " + status);
+    }
+
+    private static javax.swing.JCheckBox findCheckBox(java.awt.Container root, String text) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (c instanceof javax.swing.JCheckBox b && text.equals(b.getText())) return b;
+            if (c instanceof java.awt.Container inner) {
+                javax.swing.JCheckBox found = findCheckBox(inner, text);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    @Test
     void loadFromUrl_plainHttp_sendsWithoutTlsOptions() {
         String url = "http://127.0.0.1:8099/openapi.json";
         HttpRequest req = mock(HttpRequest.class);

@@ -130,6 +130,22 @@ class DivergenceLevelTest {
     }
 
     @Test
+    void horizontal_notFlagged_whenAnonymousGotTheSameBody_objectIsPublic() {
+        // Anonymous, user and admin all see the same object: public, not IDOR.
+        var cells = List.of(body(200, "same"), body(200, "same"), body(200, "same"));
+        assertEquals(DivergenceLevel.CONSISTENT_ALLOW,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true)));
+    }
+
+    @Test
+    void horizontal_stillFlagged_whenAnonymousGotADifferentBody() {
+        // Anonymous sees a stub, user and admin see the same full record.
+        var cells = List.of(body(200, "stub"), body(200, "same"), body(200, "same"));
+        assertEquals(DivergenceLevel.HORIZONTAL,
+                DivergenceLevel.classify(cells, true, List.of(false, true, true)));
+    }
+
+    @Test
     void horizontal_ignoresCellsWithoutHash() {
         var cells = List.of(body(401, null), body(200, null), body(200, null));
         assertEquals(DivergenceLevel.TIERED,

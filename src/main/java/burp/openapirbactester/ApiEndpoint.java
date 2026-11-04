@@ -83,6 +83,16 @@ public class ApiEndpoint {
         return false;
     }
 
+    /**
+     * True when the operation addresses a specific object: either a declared path parameter
+     * or a template in the path itself ({@code /users/{id}}). The template check matters
+     * because path-item-level parameters are not merged into operations by the parser, and
+     * some specs never declare them at all.
+     */
+    public boolean isObjectScoped() {
+        return hasPathParameter() || path.indexOf('{') >= 0;
+    }
+
     public String getDescription() {
         return description;
     }

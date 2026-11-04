@@ -70,7 +70,7 @@ public class RbacComparisonDialog extends JDialog implements OpenAPIRbacTesterTa
         this.identities = identities;
         this.model = new RbacResultTableModel(endpoints,
                 identities.stream().map(Identity::name).toList(),
-                identities.stream().map(i -> !i.authConfig().isEmpty()).toList());
+                identities.stream().map(i -> i.authConfig().hasCredentials()).toList());
         this.runner = new RbacRunner(sender, Math.max(1, concurrency));
         buildUi();
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -153,8 +153,7 @@ public class RbacComparisonDialog extends JDialog implements OpenAPIRbacTesterTa
      */
     @Override
     public void abort() {
-        runner.cancel();
-        runner.shutdown();
+        runner.abort();
         if (SwingUtilities.isEventDispatchThread()) {
             dispose();
         } else {

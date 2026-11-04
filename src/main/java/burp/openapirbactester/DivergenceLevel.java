@@ -97,16 +97,28 @@ public enum DivergenceLevel {
     }
 
     private static boolean sharesObjectAcrossIdentities(List<RbacCellResult> cells, List<Boolean> credentialed) {
+        // Anything an anonymous identity can read is public; the same body showing up for
+        // credentialed identities is then expected, not a leak.
+        java.util.Set<String> publicHashes = new java.util.HashSet<>();
         java.util.Set<String> seen = new java.util.HashSet<>();
         for (int i = 0; i < cells.size(); i++) {
-            boolean hasCreds = credentialed == null || i >= credentialed.size() || credentialed.get(i) == null
-                    || credentialed.get(i);
-            if (!hasCreds) continue;
             RbacCellResult c = cells.get(i);
             if (c.isError() || !c.is2xx() || c.bodyHash() == null) continue;
+            if (!isCredentialed(credentialed, i)) publicHashes.add(c.bodyHash());
+        }
+        for (int i = 0; i < cells.size(); i++) {
+            if (!isCredentialed(credentialed, i)) continue;
+            RbacCellResult c = cells.get(i);
+            if (c.isError() || !c.is2xx() || c.bodyHash() == null) continue;
+            if (publicHashes.contains(c.bodyHash())) continue;
             if (!seen.add(c.bodyHash())) return true;
         }
         return false;
+    }
+
+    private static boolean isCredentialed(List<Boolean> credentialed, int i) {
+        return credentialed == null || i >= credentialed.size() || credentialed.get(i) == null
+                || credentialed.get(i);
     }
 
     /**

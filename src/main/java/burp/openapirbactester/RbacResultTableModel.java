@@ -116,7 +116,7 @@ public class RbacResultTableModel extends AbstractTableModel {
         for (int c = 0; c < identityNames.size(); c++) {
             rowCells.add(cells[row][c]);
         }
-        return DivergenceLevel.classify(rowCells, endpoints.get(row).hasPathParameter(), credentialed);
+        return DivergenceLevel.classify(rowCells, endpoints.get(row).isObjectScoped(), credentialed);
     }
 
     /** Summary of how many rows fall into each divergence bucket — used for the header stat. */

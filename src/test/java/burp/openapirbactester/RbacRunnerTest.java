@@ -234,4 +234,26 @@ class RbacRunnerTest {
         assertSame(expectedRaw, receivedRaw[0]);
         runner.shutdown();
     }
+
+    @Test
+    void abort_returnsWithoutWaitingForInFlightSends() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch started = new CountDownLatch(1);
+        RbacHttpSender sender = (ep, auth, base) -> {
+            started.countDown();
+            try { release.await(10, TimeUnit.SECONDS); } catch (InterruptedException ignored) { }
+            return new RbacHttpSender.SendResult(RbacCellResult.ok(200, 0, 0), null);
+        };
+        RbacRunner runner = new RbacRunner(sender, 1);
+        runner.run(List.of(endpoint(1, "/slow")), List.of(identity("a")), new RecordingListener());
+        assertTrue(started.await(5, TimeUnit.SECONDS));
+
+        long t0 = System.nanoTime();
+        runner.abort();
+        long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
+
+        assertTrue(elapsedMs < 1000, "abort blocked for " + elapsedMs + "ms");
+        assertTrue(runner.isCancelled());
+        release.countDown();
+    }
 }

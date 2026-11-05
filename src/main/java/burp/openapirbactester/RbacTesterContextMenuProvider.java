@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Adds a "Send to OpenAPI-RBAC-Tester" entry to any Burp HTTP message context menu.
+ * Adds a "Send to OpenAPI RBAC Tester" entry to any Burp HTTP message context menu.
  * Extracts auth headers from the chosen request and, if the response looks like an
  * OpenAPI spec (or the URL looks spec-shaped), pre-populates the extension tab.
  */
@@ -30,7 +30,7 @@ public class RbacTesterContextMenuProvider implements ContextMenuItemsProvider {
         if (target == null || target.request() == null) {
             return Collections.emptyList();
         }
-        JMenuItem item = new JMenuItem("Send to OpenAPI-RBAC-Tester");
+        JMenuItem item = new JMenuItem("Send to " + ExtensionInfo.DISPLAY_NAME);
         item.addActionListener(e -> tab.importFromRequest(target));
         return List.of(item);
     }

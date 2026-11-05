@@ -1,12 +1,12 @@
 Uuid: b3a7f2c1e9d44a8b9c0e1f2a3b4c5d6e
 ExtensionType: 1
-Name: OpenAPI-RBAC-Tester
+Name: OpenAPI RBAC Tester
 RepoName: OpenAPI-RBAC-Tester
-ScreenVersion: 1.0
+ScreenVersion: 1.1.1
 SerialVersion: 1
 MinPlatformVersion: 0
 ProOnly: False
 Author: jabberwock
 ShortDescription: Load OpenAPI specs and compare authorization across multiple identities in a single matrix. Imports auth from any Proxy request, runs endpoints in parallel with named identities, flags access divergence (TIERED vs broken).
-EntryPoint: build/libs/OpenAPI-RBAC-Tester-1.0.jar
+EntryPoint: build/libs/OpenAPI-RBAC-Tester-1.1.1.jar
 BuildCommand: ./gradlew build

@@ -43,7 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Main OpenAPI-RBAC-Tester tab panel. Provides the UI for loading OpenAPI specs, viewing parsed
+ * Main OpenAPI RBAC Tester tab panel. Provides the UI for loading OpenAPI specs, viewing parsed
  * endpoints, and sending requests to Scanner, Repeater, or Intruder.
  * <p>
  * Supports loading specs via drag-and-drop, URL, file path (including network drives),
@@ -924,7 +924,7 @@ public class OpenAPIRbacTesterTab extends JPanel {
     /**
      * Populates the auth panel from a Burp HTTP request, and — when possible — auto-detects
      * the OpenAPI spec source from the request's response body or URL path. Invoked from
-     * the "Send to OpenAPI-RBAC-Tester" context menu. Runs on the EDT.
+     * the "Send to OpenAPI RBAC Tester" context menu. Runs on the EDT.
      */
     public void importFromRequest(HttpRequestResponse rr) {
         SwingUtilities.invokeLater(() -> applyImport(rr));
@@ -1068,7 +1068,7 @@ public class OpenAPIRbacTesterTab extends JPanel {
     }
 
     /**
-     * Modal picker shown during "Send to OpenAPI-RBAC-Tester" when more than one identity
+     * Modal picker shown during "Send to OpenAPI RBAC Tester" when more than one identity
      * exists. Returns the chosen existing identity index, {@code identityStore.size()}
      * to signal "create new identity", or {@code null} if the user cancelled.
      */
@@ -1094,7 +1094,7 @@ public class OpenAPIRbacTesterTab extends JPanel {
         panel.add(newRb);
 
         int choice = JOptionPane.showConfirmDialog(this, panel,
-                "Send to OpenAPI-RBAC-Tester — choose identity",
+                "Send to " + ExtensionInfo.DISPLAY_NAME + " — choose identity",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (choice != JOptionPane.OK_OPTION) return null;
         if (newRb.isSelected()) return all.size();
@@ -1128,7 +1128,7 @@ public class OpenAPIRbacTesterTab extends JPanel {
 
     private void setupContextMenu() {
         JPopupMenu popup = new JPopupMenu();
-        JMenu openapiMenu = new JMenu("OpenAPI-RBAC-Tester");
+        JMenu openapiMenu = new JMenu(ExtensionInfo.DISPLAY_NAME);
         JMenuItem scanItem = new JMenuItem("Actively Scan");
         scanItem.setEnabled(hasScanner);
         if (!hasScanner) {

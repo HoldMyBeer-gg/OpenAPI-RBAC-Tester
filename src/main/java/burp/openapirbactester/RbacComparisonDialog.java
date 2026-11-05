@@ -64,7 +64,7 @@ public class RbacComparisonDialog extends JDialog implements OpenAPIRbacTesterTa
                                 List<Identity> identities,
                                 RbacHttpSender sender,
                                 int concurrency) {
-        super(owner, "Compare identities — OpenAPI-RBAC-Tester", false);
+        super(owner, "Compare identities — " + ExtensionInfo.DISPLAY_NAME, false);
         this.api = api;
         this.endpoints = endpoints;
         this.identities = identities;

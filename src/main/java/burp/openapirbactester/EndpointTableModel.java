@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * Swing table model for the OpenAPI-RBAC-Tester endpoint list. Supports regex filtering with a
+ * Swing table model for the OpenAPI RBAC Tester endpoint list. Supports regex filtering with a
  * maximum pattern length to mitigate ReDoS. Displays index, scheme, method, server,
  * path, parameters, and description.
  *

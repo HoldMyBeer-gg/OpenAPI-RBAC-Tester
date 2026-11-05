@@ -1,4 +1,4 @@
-# OpenAPI-RBAC-Tester
+# OpenAPI RBAC Tester
 
 An alternative Burp Suite extension for loading OpenAPI specifications and bridging parsed endpoints into Scanner, Repeater, and Intruder — with a built-in **RBAC comparison grid** for testing authorization across multiple identities in a single pass.
 
@@ -30,10 +30,10 @@ Multiple ways in:
 
 - **Drag and drop** a JSON/YAML file onto the drop zone.
 - **Paste a URL or file path**, optionally filling Extra Headers with any auth the spec endpoint requires, then click Load. HTTPS spec hosts have their certificate verified by default; untick **Verify TLS** for staging hosts with self-signed or internal-CA certificates.
-- **Right-click any request in Proxy / Repeater / Logger → Send to OpenAPI-RBAC-Tester.** This is the fast path: host, base URL, and auth headers (cookies, bearer, API keys minus browser noise) are auto-imported. If the response body is an OpenAPI spec, it's auto-parsed — one click from "I have a working browser session" to a parsed endpoint list. If it isn't but the host suggests a spec (`/openapi.json`, `/swagger.json`, `/v3/api-docs`), the URL field pre-fills so Load is a single click.
+- **Right-click any request in Proxy / Repeater / Logger → Send to OpenAPI RBAC Tester.** This is the fast path: host, base URL, and auth headers (cookies, bearer, API keys minus browser noise) are auto-imported. If the response body is an OpenAPI spec, it's auto-parsed — one click from "I have a working browser session" to a parsed endpoint list. If it isn't but the host suggests a spec (`/openapi.json`, `/swagger.json`, `/v3/api-docs`), the URL field pre-fills so Load is a single click.
 - **Paste raw spec text** into the textarea and hit Parse.
 
-When multiple identities exist, "Send to OpenAPI-RBAC-Tester" prompts for which identity should receive the imported auth — preventing silent overwrites that were a source of false-negative RBAC results.
+When multiple identities exist, "Send to OpenAPI RBAC Tester" prompts for which identity should receive the imported auth — preventing silent overwrites that were a source of false-negative RBAC results.
 
 Supports **OpenAPI 2.0 (Swagger) and OpenAPI 3.x** in both JSON and YAML. Handles the common shell-prompt paste (strips leading `anon@host:/$ cat openapi.json` chatter). Path parameters get format-aware placeholders based on the spec's schema: `format: uuid` → a real UUID, `format: date-time` → a valid ISO timestamp, enums use their first value, etc. Strict server-side validators therefore route the request to the auth layer instead of bouncing it at the URL-match stage.
 
@@ -53,7 +53,7 @@ When a spec declares `components.securitySchemes`, the panel shows a one-line su
 
 ## Sending to Burp tools
 
-Select one or more endpoints, then use the buttons above the table (or right-click → **OpenAPI-RBAC-Tester**):
+Select one or more endpoints, then use the buttons above the table (or right-click → **OpenAPI RBAC Tester**):
 
 - **Actively Scan** (Pro only) — sends to Scanner with your active identity's auth. Pre-checks scope and aborts with a clear message if all selected endpoints are out of scope (Scanner otherwise silently drops them). Fires a single audit task for the whole batch.
 - **Send to Repeater** — one tab per endpoint, named `METHOD /path`.
@@ -72,7 +72,7 @@ Ctrl+I / Cmd+I sends the selection to Intruder.
 ## Installation
 
 1. Build: `./gradlew build`
-2. In Burp: **Extensions → Installed → Add → Extension type: Java →** select `build/libs/OpenAPI-RBAC-Tester-1.0.jar`.
+2. In Burp: **Extensions → Installed → Add → Extension type: Java →** select `build/libs/OpenAPI-RBAC-Tester-<version>.jar`.
 
 Requires Burp Suite with Montoya support. Active Scan requires Burp Suite Professional; everything else (RBAC comparison, imports, Intruder, Repeater) works on Community.
 
